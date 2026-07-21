@@ -85,9 +85,7 @@ public class ConditionListScreen extends Screen {
         }).pos(x, height - 30).size(200, 20).build());
     }
 
-    /**
-     * 深拷贝条件对象，通过 Gson 序列化/反序列化实现
-     */
+    // 深拷贝
     private Condition copyCondition(Condition original) {
         String json = PresetManager.GSON.toJson(original);
         return PresetManager.GSON.fromJson(json, Condition.class);
@@ -107,7 +105,7 @@ public class ConditionListScreen extends Screen {
         minecraft.setScreen(parent);
     }
 
-    // 阶段选择屏幕（与 EffectListScreen 中的相同，可复用）
+    // 阶段选择屏幕
     private static class PhaseSelectScreen extends Screen {
         private final Screen parent;
         private final List<SetPhase> phases;

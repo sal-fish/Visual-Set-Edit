@@ -31,15 +31,14 @@ public class PresetManager {
             .setPrettyPrinting()
             .create();
 
-    // 旧文件：config/visual_set_edit/presets.json
+
     private static final Path OLD_PRESETS_FILE = FMLPaths.CONFIGDIR.get().resolve("visual_set_edit/presets.json");
-    // 新目录：config/visual_set_edit/presets/  每个套装一个文件
+
     private static final Path PRESETS_DIR = FMLPaths.CONFIGDIR.get().resolve("visual_set_edit/presets");
 
     private static List<Preset> presets = new ArrayList<>();
     public static List<Preset> clientPresets = new ArrayList<>();
 
-    // 物品ID → 包含该物品的预设ID集合
     private static final Map<String, Set<String>> ITEM_TO_PRESETS = new HashMap<>();
 
     public static List<Preset> getPresets() {
@@ -51,7 +50,7 @@ public class PresetManager {
         return ids != null ? ids : Collections.emptySet();
     }
 
-    // ================= 加载 =================
+    //加载
     public static void loadPresets() {
         List<Preset> loaded = new ArrayList<>();
 
@@ -68,7 +67,6 @@ public class PresetManager {
                         }
                     } catch (Exception e) {
                         VisualSetEdit.LOGGER.error("Failed to load preset from {}", file, e);
-                        // 继续加载其他文件，不中断
                     }
                 }
             } catch (IOException e) {
@@ -76,7 +74,6 @@ public class PresetManager {
             }
         }
 
-        // 2. 如果新目录没有数据，尝试从旧文件迁移
         if (loaded.isEmpty() && Files.exists(OLD_PRESETS_FILE)) {
             try {
                 String json = Files.readString(OLD_PRESETS_FILE);
@@ -100,7 +97,7 @@ public class PresetManager {
         VisualSetEdit.LOGGER.info("VSE loaded {} presets.", presets.size());
     }
 
-    // ================= 保存 =================
+    //保存
     public static void savePresets(List<Preset> newPresets) {
         try {
             Files.createDirectories(PRESETS_DIR);
@@ -121,7 +118,7 @@ public class PresetManager {
                 Files.writeString(file, json, StandardCharsets.UTF_8);
             }
 
-            // 同时保留一份完整备份到旧文件路径（兼容性）
+            // 同时保留一份完整备份到旧文件路径
             String fullJson = GSON.toJson(newPresets);
             Files.writeString(OLD_PRESETS_FILE, fullJson, StandardCharsets.UTF_8);
 
@@ -140,7 +137,7 @@ public class PresetManager {
         rebuildIndex();
     }
 
-    // ================= 索引重建 =================
+    //索引重建
     public static void rebuildIndex() {
         ITEM_TO_PRESETS.clear();
         for (Preset preset : presets) {

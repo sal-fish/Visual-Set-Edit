@@ -5,6 +5,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -29,7 +30,7 @@ public class DimensionListScreen extends Screen {
         list = new ScrollableSelectionList(minecraft, listWidth, listHeight, 30, 16, entry -> {
             callback.accept(entry.getId());
             assert minecraft != null;
-            minecraft.setScreen(parent);    // 选中后返回父屏幕
+            minecraft.setScreen(parent);
         });
         addWidget(list);
 
@@ -57,7 +58,7 @@ public class DimensionListScreen extends Screen {
         }
 
         cached.stream()
-                .sorted(ResourceLocation::compareNamespaced)   // 使用自带排序
+                .sorted(ResourceLocation::compareNamespaced)
                 .forEach(dimLocation -> {
                     String dimId = dimLocation.toString();
                     if (!filter.isEmpty() && !dimId.toLowerCase().contains(lowerFilter)) return;
@@ -72,7 +73,7 @@ public class DimensionListScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partial) {
+    public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partial) {
         if (requested) {
             List<ResourceLocation> cached = RegistryListHelper.getRegistryIds("dimension");
             if (!cached.isEmpty()) {

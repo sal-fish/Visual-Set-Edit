@@ -5,7 +5,7 @@ import net.minecraft.world.entity.LivingEntity;
 import java.util.List;
 
 public class CompositeCondition extends Condition {
-    @Expose public String op; // AND, OR, NOT
+    @Expose public String op;
     @Expose public List<Condition> children;
 
     public CompositeCondition() { this.type = "composite"; }

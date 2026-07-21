@@ -118,7 +118,6 @@ public class SetEventHandler {
                 }
             }
 
-            // 莱特兰词条 ATTACK_TARGET（通过 IntegrationManager 调用）
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof L2HostilityTraitEffectEntry traitEff

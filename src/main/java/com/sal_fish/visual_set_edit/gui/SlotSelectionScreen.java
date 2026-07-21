@@ -15,7 +15,7 @@ public class SlotSelectionScreen extends Screen {
     private final Screen parent;
     private final String currentSlot;
     private final Consumer<String> callback;
-    private final boolean onlyCurios;                          // 是否仅显示 Curios 槽位
+    private final boolean onlyCurios;
     private ScrollableSelectionList list;
     private EditBox searchField;
 
@@ -68,9 +68,7 @@ public class SlotSelectionScreen extends Screen {
 
         // 根据 onlyCurios 决定是否加入原版槽位
         if (!onlyCurios) {
-            for (String s : VANILLA_SLOTS) {
-                allSlots.add(s);
-            }
+            allSlots.addAll(Arrays.asList(VANILLA_SLOTS));
         }
 
         if (IntegrationManager.isCuriosLoaded()) {

@@ -42,7 +42,7 @@ public class ScrollableSelectionList extends ObjectSelectionList<ScrollableSelec
             onSelect.accept(entry);
             return true;
         }
-        return false; // 没有条目被命中，事件继续传递以允许按钮响应
+        return false;
     }
 
     @Override

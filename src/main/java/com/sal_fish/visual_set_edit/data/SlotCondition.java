@@ -15,7 +15,7 @@ import java.util.Objects;
 public class SlotCondition {
     @Expose public String slot;
     @Expose public String itemId;      // "modid:item" or null for any
-    @Expose public String tagId;       // "modid:tag"   or null for any (新增)
+    @Expose public String tagId;       // "modid:tag"   or null for any
     @Expose public NbtMatchRule nbtRule = NbtMatchRule.IGNORE;
     @Expose public Map<String, Object> nbtKeys;
     @Expose public int durabilityMinPercent = 0;
@@ -28,25 +28,25 @@ public class SlotCondition {
 
         if (stack.getCount() < minCount) return false;
 
-        // 1. Tag 匹配优先
+        //Tag 匹配优先
         if (tagId != null && !tagId.isEmpty()) {
             ResourceLocation tagRl = ResourceLocation.tryParse(tagId);
             if (tagRl != null) {
                 TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagRl);
                 if (!stack.is(tagKey)) return false;
             } else {
-                return false; // 无效 tagId
+                return false;
             }
         }
-        // 2. 否则使用 itemId 匹配
+        //再itemId 匹配
         else if (itemId != null && !itemId.isEmpty()) {
             ResourceLocation req = ResourceLocation.tryParse(itemId);
             ResourceLocation has = ForgeRegistries.ITEMS.getKey(stack.getItem());
             if (req != null && !req.equals(has)) return false;
         }
-        // 3. 两者都为空 → 匹配任意物品
+        //两者都为空 → 匹配任意物品
 
-        // 耐久检查
+        //耐久检查
         if (stack.isDamageableItem()) {
             int max = stack.getMaxDamage();
             if (max > 0) {
@@ -56,15 +56,13 @@ public class SlotCondition {
             }
         }
 
-        // NBT 检查
+        //NBT 检查
         if (nbtRule == NbtMatchRule.EXACT) {
-            // 优先使用捕获的 exactNbt 进行字符串精确匹配
             if (exactNbt != null && !exactNbt.isEmpty()) {
                 CompoundTag stackTag = stack.getTag();
                 String stackNbtStr = stackTag != null ? stackTag.toString() : "";
                 return stackNbtStr.equals(exactNbt);
             }
-            // 否则回退到与物品默认 NBT 比较
             CompoundTag stackTag = stack.getTag();
             CompoundTag comp = stack.getItem().getDefaultInstance().getTag();
             if (stackTag == null && comp == null) return true;

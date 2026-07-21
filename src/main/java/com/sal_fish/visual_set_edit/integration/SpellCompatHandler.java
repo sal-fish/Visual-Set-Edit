@@ -19,11 +19,13 @@ public class SpellCompatHandler {
         AbstractSpell spell = event.getSpell();
         String spellId = spell.getSpellId();
 
-        for (var active : ActiveSetTracker.getActivePhases(entity)) {
-            for (var entry : active.phase().effects) {
-                if (entry instanceof SpellLevelBoostEffectEntry boost) {
-                    if (boost.spellId == null || boost.spellId.isEmpty() || boost.spellId.equals(spellId)) {
-                        event.setLevel(event.getLevel() + boost.boostAmount);
+        if (entity != null) {
+            for (var active : ActiveSetTracker.getActivePhases(entity)) {
+                for (var entry : active.phase().effects) {
+                    if (entry instanceof SpellLevelBoostEffectEntry boost) {
+                        if (boost.spellId == null || boost.spellId.isEmpty() || boost.spellId.equals(spellId)) {
+                            event.setLevel(event.getLevel() + boost.boostAmount);
+                        }
                     }
                 }
             }

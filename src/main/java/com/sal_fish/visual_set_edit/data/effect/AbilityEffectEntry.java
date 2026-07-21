@@ -6,7 +6,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 public class AbilityEffectEntry extends EffectEntry {
-    @Expose public String abilityId; // FLIGHT, FALL_IMMUNITY
+    @Expose public String abilityId;
 
     public AbilityEffectEntry() { this.type = "ability"; }
 

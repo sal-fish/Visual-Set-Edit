@@ -60,7 +60,7 @@ public class IronSpellsIntegration implements IModIntegration {
                         sp.sendSystemMessage(Component.translatable("visual_set_edit.integration.spell_not_found", spellId));
                         return false;
                     }
-                    // 使用效果中配置的等级（最小为1）
+                    // 使用效果中配置的等级
                     int level = Math.max(1, spellEffect.spellLevel);
                     return spell.attemptInitiateCast(ItemStack.EMPTY, level, sp.level(), sp, CastSource.SPELLBOOK, true, "mainhand");
                 }
@@ -69,7 +69,7 @@ public class IronSpellsIntegration implements IModIntegration {
         return false;
     }
 
-    // Curios 方法（铁魔法不实现饰品功能）
+    // Curios 方法
     @Override public List<String> getExtraSlots() { return new ArrayList<>(); }
     @Override public ItemStack getSlotStack(LivingEntity entity, String slotId) { return ItemStack.EMPTY; }
     @Override public List<ItemStack> getSlotStacks(LivingEntity entity, String slotId) { return Collections.emptyList(); }

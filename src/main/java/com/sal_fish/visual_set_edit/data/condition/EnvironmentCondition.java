@@ -8,8 +8,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 
 public class EnvironmentCondition extends Condition {
-    @Expose public String field; // LIGHT_SKY,LIGHT_BLOCK,DIMENSION,BIOME,Y,WEATHER,MOON_PHASE,TIME,STRUCTURE,TEMPERATURE
-    @Expose public String comparator; // EQ,GT,LT,GTE,LTE
+    @Expose public String field;
+    @Expose public String comparator;
     @Expose public String value;
 
     public EnvironmentCondition() { this.type = "environment"; }

@@ -38,7 +38,7 @@ public class IntegrationManager {
         return curios;
     }
 
-    // ========== 联动初始化 ==========
+    //联动初始化
     public static void initCompat() {
         if (isIronSpellsLoaded()) {
             try {
@@ -48,7 +48,7 @@ public class IntegrationManager {
         }
     }
 
-    // ========== 莱特兰词条运行时调用 ==========
+    //莱特兰词条运行时调用
     public static void applyL2TraitToTarget(LivingEntity attacker, LivingEntity target, com.sal_fish.visual_set_edit.data.effect.EffectEntry entry) {
         if (!isL2HostilityLoaded()) return;
         try {
@@ -66,7 +66,7 @@ public class IntegrationManager {
         } catch (Exception ignored) {}
     }
 
-    // ========== GUI 工厂方法 ==========
+    //GUI 工厂方法
     public static Screen createSpellListScreen(Screen parent, Consumer<ResourceLocation> callback) {
         if (!isIronSpellsLoaded()) return null;
         try {
@@ -89,11 +89,7 @@ public class IntegrationManager {
         }
     }
 
-    // ========== 显示名称获取（反射，无硬依赖） ==========
-
-    /**
-     * 获取铁魔法法术的显示名称，未加载或找不到时返回 null
-     */
+    //获取铁魔法法术的显示名称
     public static String getSpellDisplayName(String spellId) {
         if (!isIronSpellsLoaded() || spellId == null || spellId.isEmpty()) return null;
         try {
@@ -111,9 +107,7 @@ public class IntegrationManager {
         return null;
     }
 
-    /**
-     * 获取莱特兰词条的显示名称，未加载或找不到时返回 null
-     */
+    //获取莱特兰词条的显示名称
     public static String getL2TraitDisplayName(String traitId) {
         if (!isL2HostilityLoaded() || traitId == null || traitId.isEmpty()) return null;
         try {

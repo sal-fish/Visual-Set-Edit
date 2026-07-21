@@ -101,7 +101,7 @@ public class PhaseEditScreen extends Screen {
         int deleteButtonWidth = 18;
         int tagButtonWidth = 18;
         int exactButtonWidth = 20;
-        int captureButtonWidth = 20;   // 捕获手持物品按钮
+        int captureButtonWidth = 20;
         int spacingBetween = 2;
         int tagEditWidth = 36;
         int itemButtonWidth = controlWidth - slotButtonWidth - deleteButtonWidth - tagEditWidth

@@ -76,7 +76,6 @@ public class AttributeEffectEntry extends EffectEntry {
             case MULTIPLY_BASE -> "× base ";
             case MULTIPLY_TOTAL -> "× total ";
         };
-        // 负数自带负号，不需额外前缀
         return opSymbol + amount;
     }
 }

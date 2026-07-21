@@ -89,7 +89,6 @@ public class CuriosIntegration implements IModIntegration {
         }
     }
 
-    // 以下方法不变
     @Override public double getMana(LivingEntity player) { return 0; }
     @Override public double getManaPercent(LivingEntity player) { return 0; }
     @Override public boolean isCasting(LivingEntity player) { return false; }

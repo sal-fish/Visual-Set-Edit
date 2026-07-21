@@ -6,6 +6,6 @@ public class NbtMatcher {
     public static boolean equals(CompoundTag a, CompoundTag b) {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        return a.equals(b); // simplistic, full deep compare could be used
+        return a.equals(b);
     }
 }

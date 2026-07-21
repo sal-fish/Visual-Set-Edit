@@ -23,7 +23,7 @@ public class ItemListScreen extends Screen {
         super(Component.translatable("visual_set_edit.gui.select_item"));
         this.parent = parent;
         this.callback = callback;
-        // slotType 保留但不使用，兼容调用方
+        // slotType 保留
     }
 
     @Override

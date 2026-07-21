@@ -62,7 +62,7 @@ public class L2CompatHandler {
         if (list.isEmpty()) scheduledRemovals.remove(entity.getUUID());
     }
 
-    // ========== 难度读取 ==========
+    //难度读取
     public static int getChunkDifficulty(LivingEntity entity) {
         if (!IntegrationManager.isL2HostilityLoaded()) return 0;
         try {
@@ -103,13 +103,12 @@ public class L2CompatHandler {
         return 0;
     }
 
-    // ========== 难度修改（核心） ==========
+    //难度修改
     public static void modifyPlayerDifficulty(LivingEntity entity, int amount) {
         if (!IntegrationManager.isL2HostilityLoaded() || !(entity instanceof ServerPlayer sp)) return;
         try {
             Class<?> playerDiffClass = Class.forName("dev.xkmc.l2hostility.content.capability.player.PlayerDifficulty");
             Object holder = playerDiffClass.getField("HOLDER").get(null);
-            // ★ 修正：参数类型改为 Player.class
             Object playerDiff = holder.getClass().getMethod("get", Player.class).invoke(holder, sp);
             if (playerDiff == null) {
                 VisualSetEdit.LOGGER.error("[VSE] PlayerDifficulty not found for {}", sp.getName().getString());
@@ -133,7 +132,7 @@ public class L2CompatHandler {
         }
     }
 
-    // ========== 辅助方法 ==========
+    //辅助方法
     private static void removeTraitEffects(LivingEntity entity, MobTrait trait) {
         if (trait instanceof AttributeTrait attrTrait) {
             try {

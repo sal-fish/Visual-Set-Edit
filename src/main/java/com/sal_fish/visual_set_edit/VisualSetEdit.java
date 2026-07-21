@@ -45,13 +45,13 @@ public class VisualSetEdit {
     private void commonSetup(final FMLCommonSetupEvent event) {
         VsePacketHandler.register();
 
-        // 1. 初始化联动运行时（如铁魔法事件监听），类型注册已在 EffectEntryAdapter 静态初始化中完成
+        //初始化联动运行时（如铁魔法事件监听），类型注册已在 EffectEntryAdapter 静态初始化中完成
         IntegrationManager.initCompat();
 
-        // 2. 加载预设（此时所有效果类型均已注册，可以正常反序列化）
+        //加载预设（此时所有效果类型均已注册，可以正常反序列化）
         PresetManager.loadPresets();
 
-        // 3. Curios 联动初始化
+        //Curios 联动初始化
         if (IntegrationManager.isCuriosLoaded()) {
             CuriosItemMappingManager.load();
             IntegrationManager.getCurios().onInitialize();

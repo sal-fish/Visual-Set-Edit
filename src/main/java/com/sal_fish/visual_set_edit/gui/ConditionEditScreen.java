@@ -287,7 +287,7 @@ public class ConditionEditScreen extends Screen {
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
-    // ---- 库存条件 ----
+    //库存条件
     private void buildInventoryFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         // 槽位选择
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -376,7 +376,7 @@ public class ConditionEditScreen extends Screen {
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
-    // ---- 铁魔法条件 ----
+    //铁魔法条件
     private void buildIronSpellFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         List<String> isFieldOpts = List.of("MANA", "MANA_PERCENT", "CASTING");
         if (isField == null || isField.isEmpty()) isField = isFieldOpts.get(0);
@@ -390,7 +390,7 @@ public class ConditionEditScreen extends Screen {
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                         Component.translatable("visual_set_edit.gui.condition.field"), (btn, val) -> {
                             isField = val;
-                            init(); // 重新绘制以隐藏/显示比较符
+                            init();
                         });
         addRenderableWidget(isFieldButton);
         y += rowHeight + spacing;
@@ -421,7 +421,7 @@ public class ConditionEditScreen extends Screen {
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
-    // ---- 复合条件 ----
+    //复合条件
     private void buildCompositeFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.composite.op"), font));

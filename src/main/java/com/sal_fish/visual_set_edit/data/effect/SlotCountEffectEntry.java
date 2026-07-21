@@ -52,7 +52,7 @@ public class SlotCountEffectEntry extends EffectEntry {
 
         CuriosApi.getCuriosInventory(entity).ifPresent(handler -> {
             // 如果该槽位处理器尚不存在，则手动创建
-            if (!handler.getStacksHandler(realSlotId).isPresent()) {
+            if (handler.getStacksHandler(realSlotId).isEmpty()) {
                 ISlotType slotType = CuriosApi.getSlot(realSlotId, entity.level()).orElse(null);
                 if (slotType != null) {
                     CurioStacksHandler newHandler = new CurioStacksHandler(

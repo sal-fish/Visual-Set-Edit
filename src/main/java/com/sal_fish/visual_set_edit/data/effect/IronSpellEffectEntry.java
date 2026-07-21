@@ -14,14 +14,10 @@ public class IronSpellEffectEntry extends EffectEntry {
     public IronSpellEffectEntry() { this.type = "iron_spell"; }
 
     @Override
-    public void apply(LivingEntity entity) {
-        // 仅标记，实际施法通过按键触发
-    }
+    public void apply(LivingEntity entity) {}
 
     @Override
-    public void remove(LivingEntity entity) {
-        // 无需操作
-    }
+    public void remove(LivingEntity entity) {}
 
     @Override
     public String getDisplayText() {

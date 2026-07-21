@@ -207,8 +207,7 @@ public class EffectEditScreen extends Screen {
             case "tag" -> y = buildTagFields(centerX, y, totalWidth, rowHeight, spacing);
         }
 
-        // 计算内容总高度，用于滚动限制
-        this.contentHeight = y + 30; // y 为保存按钮底部位置，留30像素边距
+        this.contentHeight = y + 30;
         if (scrollOffset > Math.max(0, contentHeight - this.height)) {
             scrollOffset = Math.max(0, contentHeight - this.height);
         }
@@ -513,7 +512,6 @@ public class EffectEditScreen extends Screen {
     }
 
     private int buildL2DifficultyModFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
-        // 固定显示"玩家难度"标签
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.l2_difficulty_mod.player"), font));
         y += rowHeight + spacing;

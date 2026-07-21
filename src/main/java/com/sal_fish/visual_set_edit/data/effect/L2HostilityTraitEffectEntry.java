@@ -13,14 +13,10 @@ public class L2HostilityTraitEffectEntry extends EffectEntry {
     }
 
     @Override
-    public void apply(net.minecraft.world.entity.LivingEntity entity) {
-        // 实际逻辑在 L2CompatHandler 中处理
-    }
+    public void apply(net.minecraft.world.entity.LivingEntity entity) {}
 
     @Override
-    public void remove(net.minecraft.world.entity.LivingEntity entity) {
-        // 实际逻辑在 L2CompatHandler 中处理
-    }
+    public void remove(net.minecraft.world.entity.LivingEntity entity) {}
 
     @Override
     public String getDisplayText() {

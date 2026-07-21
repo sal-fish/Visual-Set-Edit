@@ -78,7 +78,7 @@ public class CuriosItemRegisterScreen extends Screen {
                             slotList.setSelected(null);
                         }
                     });
-            slotList.setLeftPos(centerX); // 设置列表左边界为 centerX，使其居中
+            slotList.setLeftPos(centerX);
             addWidget(slotList);
 
             List<String> allSlots = IntegrationManager.getCurios().getExtraSlots();

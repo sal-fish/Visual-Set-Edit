@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 
 public class EffectListScreen extends Screen {
     private final SetPhase phase;
-    private final Preset preset;          // 新增：用于访问其他阶段
+    private final Preset preset;
     private final Screen parent;
 
     public EffectListScreen(SetPhase phase, Preset preset, Screen parent) {

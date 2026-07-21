@@ -44,8 +44,7 @@ public record S2CSyncPresetsPacket(List<Preset> presets) {
         ctx.get().setPacketHandled(true);
     }
 
-    // ========== 压缩工具方法（与 C2S 包保持一致） ==========
-
+    //压缩
     private static byte[] compress(String str) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {

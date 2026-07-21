@@ -78,8 +78,7 @@ public class PlayerStateCondition extends Condition {
         }
     }
 
-    // ---- 工具方法 ----
-
+    //工具方法
     /** 支持 "50%" 格式的百分比比较，也支持纯数字的绝对值比较 */
     private boolean comparePercentageOrAbsolute(int current, float max, String comp, String val) {
         if (val.endsWith("%")) {

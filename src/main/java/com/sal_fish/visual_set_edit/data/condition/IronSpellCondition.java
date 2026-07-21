@@ -6,7 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 
 public class IronSpellCondition extends Condition {
-    @Expose public String field; // MANA,MANA_PERCENT,CASTING
+    @Expose public String field;
     @Expose public String comparator;
     @Expose public double value;
 

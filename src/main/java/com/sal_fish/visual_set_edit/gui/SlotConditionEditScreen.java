@@ -18,7 +18,7 @@ public class SlotConditionEditScreen extends Screen {
     private final int index;
     private final Screen parent;
     private EditBox minDurabilityEdit, maxDurabilityEdit, tagEdit;
-    private Button slotSelectButton;          // 替代原来的 CycleButton
+    private Button slotSelectButton;
     private Button itemSelectButton;
     private String selectedSlot;
     private ResourceLocation selectedItem;

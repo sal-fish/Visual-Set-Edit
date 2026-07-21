@@ -56,7 +56,7 @@ public class TagListScreen extends Screen {
                     list.addEntry(new ScrollableSelectionList.Entry(
                             Component.literal(tagId),
                             tagKey.location(),
-                            null  // Tag 无图标
+                            null
                     ));
                 });
     }

@@ -73,10 +73,8 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         if (variableType == VariableType.EQUIPPED_DURATION) {
             String key = "vse_dyn_start_" + uniqueId;
             if (entity.getPersistentData().contains(key)) {
-                // 恢复之前保存的起始游戏刻（例如大退重进后）
                 startTick = entity.getPersistentData().getLong(key);
             } else {
-                // 第一次穿戴，记录当前游戏刻并持久化
                 startTick = entity.level().getGameTime();
                 entity.getPersistentData().putLong(key, startTick);
             }
