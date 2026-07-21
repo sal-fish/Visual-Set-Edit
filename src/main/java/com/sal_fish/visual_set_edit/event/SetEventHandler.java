@@ -1,0 +1,563 @@
+package com.sal_fish.visual_set_edit.event;
+
+import com.sal_fish.visual_set_edit.config.PresetManager;
+import com.sal_fish.visual_set_edit.data.Preset;
+import com.sal_fish.visual_set_edit.data.SetPhase;
+import com.sal_fish.visual_set_edit.data.SlotCondition;
+import com.sal_fish.visual_set_edit.data.effect.*;
+import com.sal_fish.visual_set_edit.integration.IModIntegration;
+import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.network.S2CSyncPresetsPacket;
+import com.sal_fish.visual_set_edit.network.VsePacketHandler;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.event.entity.living.*;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class SetEventHandler {
+
+    private static final Set<UUID> UPDATING = new HashSet<>();
+    private static final Set<UUID> PENDING_FIX = new HashSet<>();
+    private static final Map<UUID, Long> LAST_HURT_TICKS = new HashMap<>();
+    private static final Map<UUID, Float> LAST_HURT_AMOUNT = new HashMap<>();
+    private static final Map<UUID, Integer> SNAPSHOT_HASH_CACHE = new HashMap<>();
+
+    //公开辅助方法
+    public static void forceReevaluate(LivingEntity entity) {
+        SNAPSHOT_HASH_CACHE.remove(entity.getUUID());
+    }
+    public static void clearSnapshotCache(UUID uuid) {
+        SNAPSHOT_HASH_CACHE.remove(uuid);
+    }
+    public static Long getLastHurtTick(LivingEntity entity) {
+        return LAST_HURT_TICKS.get(entity.getUUID());
+    }
+    public static Float getLastHurtAmount(LivingEntity entity) {
+        return LAST_HURT_AMOUNT.get(entity.getUUID());
+    }
+
+    //事件处理
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            VsePacketHandler.INSTANCE.send(
+                    PacketDistributor.PLAYER.with(() -> player),
+                    new S2CSyncPresetsPacket(PresetManager.getPresets())
+            );
+            recreateEffects(player);
+            SNAPSHOT_HASH_CACHE.remove(player.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        clearSnapshotCache(event.getEntity().getUUID());
+    }
+
+    @SubscribeEvent
+    public void onEquipmentChange(LivingEquipmentChangeEvent event) {
+        reevaluateIfChanged(event.getEntity(), true);
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOW)
+    public void onPlayerClone(PlayerEvent.Clone event) {
+        if (event.isWasDeath() && event.getEntity() instanceof ServerPlayer newPlayer) {
+            ServerPlayer oldPlayer = (ServerPlayer) event.getOriginal();
+            DynamicAttributeEffectEntry.transferDynamicData(oldPlayer, newPlayer);
+            IntegrationManager.cleanupCuriosSlotsOnClone(oldPlayer, newPlayer);
+            recreateEffects(newPlayer);
+            SNAPSHOT_HASH_CACHE.remove(newPlayer.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onLivingDeath(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof LivingEntity killer) {
+            for (var active : ActiveSetTracker.getActivePhases(killer)) {
+                for (EffectEntry effect : active.phase().effects) {
+                    if (effect instanceof DynamicAttributeEffectEntry dynEff
+                            && dynEff.variableType == DynamicAttributeEffectEntry.VariableType.KILL_COUNT_SINCE_EQUIP) {
+                        DynamicAttributeEffectEntry.incrementKillCount(killer, dynEff);
+                    }
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onLivingHurt(LivingHurtEvent event) {
+        LivingEntity target = event.getEntity();
+        LAST_HURT_TICKS.put(target.getUUID(), target.level().getGameTime());
+        LAST_HURT_AMOUNT.put(target.getUUID(), event.getAmount());
+
+        if (event.getSource().getEntity() instanceof LivingEntity attacker) {
+            // 药水 ATTACK_TARGET
+            for (var active : ActiveSetTracker.getActivePhases(attacker)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof PotionEffectEntry pot && "ATTACK_TARGET".equals(pot.target)) {
+                        MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(ResourceLocation.tryParse(pot.mobEffectId));
+                        if (effect != null) {
+                            int dur = pot.durationSeconds == -1 ? MobEffectInstance.INFINITE_DURATION :
+                                    (pot.durationSeconds <= 0 ? 60 : pot.durationSeconds * 20);
+                            target.addEffect(new MobEffectInstance(effect, dur, pot.amplifier,false, pot.showParticles), attacker);
+                        }
+                    }
+                }
+            }
+
+            // 莱特兰词条 ATTACK_TARGET（通过 IntegrationManager 调用）
+            for (var active : ActiveSetTracker.getActivePhases(attacker)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof L2HostilityTraitEffectEntry traitEff
+                            && "ATTACK_TARGET".equals(traitEff.target)) {
+                        IntegrationManager.applyL2TraitToTarget(attacker, target, traitEff);
+                    }
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onLivingTick(LivingEvent.LivingTickEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity.level().isClientSide) return;
+
+        if (entity.getPersistentData().getBoolean("vse_fallimmune")) {
+            entity.fallDistance = 0;
+        }
+
+        if (PENDING_FIX.remove(entity.getUUID())) {
+            ensureAllPermanentEffectsApplied(entity);
+        }
+
+        if (entity.tickCount % 20 == 0) {
+            reevaluateIfChanged(entity, false);
+            ensureAllPermanentEffectsApplied(entity);
+            ensureAllPermanentAttributes(entity);
+            processTimedPotionEffects(entity);
+            processRepeatingCommands(entity);
+            processDynamicAttributes(entity);
+            IntegrationManager.tickL2Traits(entity);
+        }
+    }
+
+    //药水效果变化
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onMobEffectApplicable(MobEffectEvent.Applicable event) {
+        LivingEntity entity = event.getEntity();
+        if (isImmuneToEffect(entity, event.getEffectInstance().getEffect())) {
+            event.setResult(Event.Result.DENY);
+        }
+    }
+
+    @SubscribeEvent
+    public void onMobEffectAdded(MobEffectEvent.Added event) {
+        LivingEntity entity = event.getEntity();
+        MobEffect effect = event.getEffectInstance().getEffect();
+        if (isImmuneToEffect(entity, effect)) {
+            UPDATING.add(entity.getUUID());
+            entity.removeEffect(effect);
+            UPDATING.remove(entity.getUUID());
+        }
+        SNAPSHOT_HASH_CACHE.remove(entity.getUUID());
+    }
+
+    @SubscribeEvent
+    public void onMobEffectRemoved(MobEffectEvent.Remove event) {
+        LivingEntity entity = event.getEntity();
+        if (UPDATING.contains(entity.getUUID())) return;
+
+        MobEffect removedEffect = event.getEffect();
+        ResourceLocation removedKey = ForgeRegistries.MOB_EFFECTS.getKey(removedEffect);
+        if (removedKey != null) {
+            String removedKeyStr = removedKey.toString();
+            for (var active : ActiveSetTracker.getActivePhases(entity)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof PotionEffectEntry pot && "SELF".equals(pot.target)) {
+                        if (removedKeyStr.equals(pot.mobEffectId)) {
+                            PENDING_FIX.add(entity.getUUID());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        SNAPSHOT_HASH_CACHE.remove(entity.getUUID());
+    }
+
+    @SubscribeEvent
+    public void onMobEffectExpired(MobEffectEvent.Expired event) {
+        SNAPSHOT_HASH_CACHE.remove(event.getEntity().getUUID());
+    }
+
+    //核心评估逻辑
+    private boolean isImmuneToEffect(LivingEntity entity, MobEffect effect) {
+        ResourceLocation effectKey = ForgeRegistries.MOB_EFFECTS.getKey(effect);
+        if (effectKey == null) return false;
+        String effectId = effectKey.toString();
+
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof PotionEffectEntry pot
+                        && "IMMUNE".equals(pot.target)
+                        && effectId.equals(pot.mobEffectId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void reevaluateIfChanged(LivingEntity entity, boolean force) {
+        if (!force) {
+            int currentHash = computeDynamicHash(entity);
+            Integer lastHash = SNAPSHOT_HASH_CACHE.get(entity.getUUID());
+            if (lastHash != null && lastHash == currentHash) return;
+            SNAPSHOT_HASH_CACHE.put(entity.getUUID(), currentHash);
+        } else {
+            SNAPSHOT_HASH_CACHE.remove(entity.getUUID());
+        }
+
+        Set<String> equippedIds = collectEquippedItemIds(entity);
+        Set<String> candidatePresetIds = new HashSet<>();
+        for (String id : equippedIds) candidatePresetIds.addAll(PresetManager.getPresetIdsForItem(id));
+
+        List<ActiveSetTracker.ActivePhase> newPhases;
+        if (candidatePresetIds.isEmpty()) {
+            newPhases = evaluateAllPresets(entity);
+        } else {
+            newPhases = new ArrayList<>();
+            for (String pid : candidatePresetIds) {
+                for (Preset preset : PresetManager.getPresets()) {
+                    if (preset.id.equals(pid)) {
+                        for (int i = 0; i < preset.phases.size(); i++) {
+                            SetPhase phase = preset.phases.get(i);
+                            if (isPhaseActive(entity, phase)) {
+                                newPhases.add(new ActiveSetTracker.ActivePhase(preset.id, i, phase));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        List<ActiveSetTracker.ActivePhase> oldPhases = ActiveSetTracker.getActivePhases(entity);
+        if (phasesEqual(oldPhases, newPhases)) return; // 阶段未变，不重建效果
+
+        recreateEffectsFromList(entity, newPhases);
+    }
+
+    private int computeDynamicHash(LivingEntity entity) {
+        int health = (int) entity.getHealth();
+        int food = entity instanceof ServerPlayer player ? player.getFoodData().getFoodLevel() : 0;
+        int armor = entity.getArmorValue();
+        int xpLevel = entity instanceof ServerPlayer player ? player.experienceLevel : 0;
+        int fallDistance = (int) entity.fallDistance;
+
+        boolean submerged = entity.isInWaterOrBubble();
+        boolean sneaking = entity.isCrouching();
+        boolean sprinting = entity.isSprinting();
+        boolean swimming = entity.isSwimming();
+        boolean onGround = entity.onGround();
+        boolean onWall = entity.onClimbable();
+        boolean flying = entity instanceof ServerPlayer player && player.getAbilities().flying;
+        boolean sleeping = entity.isSleeping();
+        boolean riding = entity.isPassenger();
+
+        var level = entity.level();
+        String dimension = level.dimension().location().toString();
+        String biome = level.getBiome(entity.blockPosition()).unwrapKey()
+                .map(k -> k.location().toString()).orElse("");
+        int blockY = entity.blockPosition().getY();
+        boolean isRaining = level.isRaining();
+        boolean isThundering = level.isThundering();
+        int moonPhase = level.getMoonPhase();
+        int dayTime = (int) (level.getDayTime() % 24000);
+
+        int skyLight = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, entity.blockPosition());
+        int blockLight = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, entity.blockPosition());
+        int temperature = (int) (level.getBiome(entity.blockPosition()).get().getBaseTemperature() * 100);
+
+        List<String> activeEffects = entity.getActiveEffects().stream()
+                .map(effect -> ForgeRegistries.MOB_EFFECTS.getKey(effect.getEffect()).toString())
+                .sorted()
+                .collect(Collectors.toList());
+
+        double mana = 0, manaPercent = 0;
+        if (IntegrationManager.isIronSpellsLoaded()) {
+            IModIntegration is = IntegrationManager.getIronSpells();
+            mana = is.getMana(entity);
+            manaPercent = is.getManaPercent(entity);
+        }
+
+        return Objects.hash(health, food, armor, xpLevel, fallDistance,
+                submerged, sneaking, sprinting, swimming, onGround, onWall, flying, sleeping, riding,
+                dimension, biome, blockY, isRaining, isThundering, moonPhase, dayTime,
+                skyLight, blockLight, temperature,
+                activeEffects, mana, manaPercent);
+    }
+
+    //效果维护
+    private void processRepeatingCommands(LivingEntity entity) {
+        long gameTime = entity.level().getGameTime();
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof CommandEffectEntry cmd && cmd.mode == CommandEffectEntry.Mode.REPEATING) {
+                    cmd.ensureUniqueId();
+                    String key = "vse_cmd_" + cmd.uniqueId;
+                    long lastExec = entity.getPersistentData().getLong(key);
+                    long intervalTicks = cmd.repeatIntervalSeconds * 20L;
+                    if (intervalTicks <= 0) continue;
+
+                    if (lastExec == 0) {
+                        entity.getPersistentData().putLong(key, gameTime);
+                        continue;
+                    }
+
+                    if (gameTime - lastExec >= intervalTicks) {
+                        cmd.executeCommands(entity, cmd.activateCommands);
+                        entity.getPersistentData().putLong(key, gameTime);
+                    }
+                }
+            }
+        }
+    }
+
+    private void processTimedPotionEffects(LivingEntity entity) {
+        for (ActiveSetTracker.ActivePhase active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof PotionEffectEntry pot
+                        && "SELF".equals(pot.target)
+                        && pot.durationSeconds != -1) {
+                    pot.apply(entity);
+                }
+            }
+        }
+    }
+
+    private void processDynamicAttributes(LivingEntity entity) {
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof DynamicAttributeEffectEntry dyn) {
+                    dyn.updateModifier(entity);
+                }
+            }
+        }
+    }
+
+    private void ensureAllPermanentEffectsApplied(LivingEntity entity) {
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof PotionEffectEntry pot && "SELF".equals(pot.target)) {
+                    if (pot.durationSeconds != -1) continue;
+
+                    MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(ResourceLocation.tryParse(pot.mobEffectId));
+                    if (effect != null) {
+                        MobEffectInstance current = entity.getEffect(effect);
+                        if (current == null || current.getDuration() < 10) {
+                            int dur = MobEffectInstance.INFINITE_DURATION;
+                            entity.addEffect(new MobEffectInstance(effect, dur, pot.amplifier, false, pot.showParticles), null);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void ensureAllPermanentAttributes(LivingEntity entity) {
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry attr) {
+                    attr.ensureUniqueId();
+                    net.minecraft.world.entity.ai.attributes.Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(
+                            new ResourceLocation(attr.attributeId));
+                    if (attribute != null) {
+                        var instance = entity.getAttribute(attribute);
+                        if (instance != null) {
+                            UUID id = UUID.fromString(attr.uniqueId);
+                            if (instance.getModifier(id) == null) {
+                                attr.apply(entity);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private SetPhase deepCopyPhase(SetPhase original) {
+        String json = PresetManager.GSON.toJson(original);
+        SetPhase copy = PresetManager.GSON.fromJson(json, SetPhase.class);
+        copy.initEffects();
+        return copy;
+    }
+
+    //装备收集与阶段比较
+    private Set<String> collectEquippedItemIds(LivingEntity entity) {
+        Set<String> ids = new HashSet<>();
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.MAINHAND));
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.OFFHAND));
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.HEAD));
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.CHEST));
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.LEGS));
+        addItemId(ids, entity.getItemBySlot(EquipmentSlot.FEET));
+
+        if (IntegrationManager.isCuriosLoaded()) {
+            IModIntegration curios = IntegrationManager.getCurios();
+            for (String slotId : curios.getExtraSlots()) {
+                List<ItemStack> stacks = curios.getSlotStacks(entity, slotId);
+                for (ItemStack stack : stacks) {
+                    addItemId(ids, stack);
+                }
+            }
+        }
+        ids.remove("minecraft:air");
+        return ids;
+    }
+
+    private void addItemId(Set<String> ids, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return;
+        ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (id != null) ids.add(id.toString());
+    }
+
+    private List<ActiveSetTracker.ActivePhase> evaluateAllPresets(LivingEntity entity) {
+        List<ActiveSetTracker.ActivePhase> newPhases = new ArrayList<>();
+        for (Preset preset : PresetManager.getPresets()) {
+            for (int i = 0; i < preset.phases.size(); i++) {
+                SetPhase phase = preset.phases.get(i);
+                if (isPhaseActive(entity, phase)) {
+                    newPhases.add(new ActiveSetTracker.ActivePhase(preset.id, i, phase));
+                }
+            }
+        }
+        return newPhases;
+    }
+
+    private boolean phasesEqual(List<ActiveSetTracker.ActivePhase> a, List<ActiveSetTracker.ActivePhase> b) {
+        if (a.size() != b.size()) return false;
+        Set<String> setA = new HashSet<>();
+        for (var phase : a) setA.add(phase.presetId() + ":" + phase.phaseIndex());
+        for (var phase : b) if (!setA.contains(phase.presetId() + ":" + phase.phaseIndex())) return false;
+        return true;
+    }
+
+    //效果重建
+    private void recreateEffects(LivingEntity entity) {
+        List<ActiveSetTracker.ActivePhase> newPhases = evaluateAllPresets(entity);
+        recreateEffectsFromList(entity, newPhases);
+    }
+
+    private void recreateEffectsFromList(LivingEntity entity, List<ActiveSetTracker.ActivePhase> newPhases) {
+        if (!entity.isAlive() || entity.isDeadOrDying()) return;
+        UPDATING.add(entity.getUUID());
+        float healthRatio = entity.getMaxHealth() > 0 ? entity.getHealth() / entity.getMaxHealth() : 1.0f;
+        List<ActiveSetTracker.ActivePhase> oldPhases = ActiveSetTracker.getActivePhases(entity);
+        Map<String, ActiveSetTracker.ActivePhase> oldPhaseMap = new HashMap<>();
+        for (var old : oldPhases) {
+            oldPhaseMap.put(old.presetId() + ":" + old.phaseIndex(), old);
+        }
+        List<ActiveSetTracker.ActivePhase> finalPhases = new ArrayList<>();
+        for (var old : oldPhases) {
+            String key = old.presetId() + ":" + old.phaseIndex();
+            boolean stillActive = false;
+            for (var n : newPhases) {
+                if ((n.presetId() + ":" + n.phaseIndex()).equals(key)) {
+                    stillActive = true;
+                    break;
+                }
+            }
+            if (!stillActive) {
+                for (EffectEntry entry : old.phase().effects) {
+                    entry.remove(entity);
+                }
+            }
+        }
+        for (var n : newPhases) {
+            String key = n.presetId() + ":" + n.phaseIndex();
+            ActiveSetTracker.ActivePhase oldPhase = oldPhaseMap.get(key);
+
+            if (oldPhase != null) {
+                finalPhases.add(oldPhase);
+            } else {
+                SetPhase independentPhase = deepCopyPhase(n.phase());
+                ActiveSetTracker.ActivePhase newActive =
+                        new ActiveSetTracker.ActivePhase(n.presetId(), n.phaseIndex(), independentPhase);
+                finalPhases.add(newActive);
+                for (EffectEntry entry : independentPhase.effects) {
+                    entry.apply(entity);
+                }
+            }
+        }
+        ActiveSetTracker.setActivePhases(entity, finalPhases);
+        if (entity.getMaxHealth() > 0) {
+            float newHealth = entity.getMaxHealth() * Math.min(healthRatio, 1.0f);
+            entity.setHealth(Math.max(newHealth, 1.0f));
+        }
+        UPDATING.remove(entity.getUUID());
+    }
+
+    private boolean isPhaseActive(LivingEntity entity, SetPhase phase) {
+        int matched = 0;
+        Map<String, ItemStack> equipment = new HashMap<>();
+        equipment.put("HEAD", entity.getItemBySlot(EquipmentSlot.HEAD));
+        equipment.put("CHEST", entity.getItemBySlot(EquipmentSlot.CHEST));
+        equipment.put("LEGS", entity.getItemBySlot(EquipmentSlot.LEGS));
+        equipment.put("FEET", entity.getItemBySlot(EquipmentSlot.FEET));
+        equipment.put("MAINHAND", entity.getItemBySlot(EquipmentSlot.MAINHAND));
+        equipment.put("OFFHAND", entity.getItemBySlot(EquipmentSlot.OFFHAND));
+
+        Map<String, Set<Integer>> usedIndices = new HashMap<>();
+
+        //VisualSetEdit.LOGGER.info("[VSE] Phase: {} requiredCount={}", phase.fallbackName, phase.requiredCount);
+
+        for (SlotCondition cond : phase.slotConditions) {
+            if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
+                String realSlotId = cond.slot.substring(7);
+                List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(entity, realSlotId);
+                //VisualSetEdit.LOGGER.info("[VSE]   Slot: {} stacks.size={}", realSlotId, stacks.size());
+
+                boolean found = false;
+                for (int i = 0; i < stacks.size(); i++) {
+                    ItemStack stack = stacks.get(i);
+                    boolean matches = cond.matches(stack);
+                    boolean used = usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i);
+                    //VisualSetEdit.LOGGER.info("[VSE]     Index {} item={} matches={} used={}", i, stack.getDisplayName().getString(), matches, used);
+
+                    if (used) continue;
+                    if (matches) {
+                        found = true;
+                        usedIndices.computeIfAbsent(realSlotId, k -> new HashSet<>()).add(i);
+                        //VisualSetEdit.LOGGER.info("[VSE]     -> Used index {}", i);
+                        break;
+                    }
+                }
+                if (found) matched++;
+                //VisualSetEdit.LOGGER.info("[VSE]   Matched so far: {}", matched);
+            } else {
+                ItemStack stack = equipment.get(cond.slot);
+                if (cond.matches(stack)) matched++;
+            }
+        }
+
+        //VisualSetEdit.LOGGER.info("[VSE] Final matched={} required={}", matched, phase.requiredCount);
+        if (matched < phase.requiredCount) return false;
+        for (var cond : phase.additionalConditions) {
+            if (!cond.test(entity)) return false;
+        }
+        return true;
+    }
+}

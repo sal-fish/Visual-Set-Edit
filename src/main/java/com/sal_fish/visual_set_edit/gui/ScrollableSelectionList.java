@@ -1,0 +1,91 @@
+package com.sal_fish.visual_set_edit.gui;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.function.Consumer;
+
+public class ScrollableSelectionList extends ObjectSelectionList<ScrollableSelectionList.Entry> {
+
+    private final Consumer<Entry> onSelect;
+
+    public ScrollableSelectionList(Minecraft minecraft, int width, int height, int y0, int itemHeight,
+                                   Consumer<Entry> onSelect) {
+        super(minecraft, width, height, y0, y0 + height, itemHeight);
+        this.onSelect = onSelect;
+    }
+
+    public void clearAllEntries() {
+        clearEntries();
+    }
+
+    @Override
+    public int addEntry(@NotNull Entry entry) {
+        return super.addEntry(entry);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 仅当鼠标落在列表可视区域内时才检查条目
+        if (mouseY < this.y0 || mouseY > this.y1) {
+            return false;
+        }
+        Entry entry = getEntryAtPosition(mouseX, mouseY);
+        if (entry != null && onSelect != null) {
+            onSelect.accept(entry);
+            return true;
+        }
+        return false; // 没有条目被命中，事件继续传递以允许按钮响应
+    }
+
+    @Override
+    protected int getScrollbarPosition() {
+        return getRight() - 6;
+    }
+
+    @Override
+    public int getRowWidth() {
+        return getWidth() - 10;
+    }
+
+    public static class Entry extends ObjectSelectionList.Entry<Entry> {
+        private final Component text;
+        private final ResourceLocation id;
+        @Nullable
+        private final ItemStack icon;
+
+        public Entry(Component text, ResourceLocation id, @Nullable ItemStack icon) {
+            this.text = text;
+            this.id = id;
+            this.icon = icon;
+        }
+
+        public ResourceLocation getId() {
+            return id;
+        }
+
+        @Override
+        public @NotNull Component getNarration() {
+            return text;
+        }
+
+        @Override
+        public void render(@NotNull GuiGraphics graphics, int index, int top, int left, int rowWidth, int rowHeight,
+                           int mouseX, int mouseY, boolean hovered, float partialTick) {
+            Font font = Minecraft.getInstance().font;
+            if (icon != null && !icon.isEmpty()) {
+                graphics.renderItem(icon, left, top + (rowHeight - 16) / 2);
+                graphics.drawString(font, text, left + 18, top + (rowHeight - 8) / 2, 0xFFFFFF);
+            } else {
+                graphics.drawString(font, text, left, top + (rowHeight - 8) / 2, 0xFFFFFF);
+            }
+        }
+    }
+}

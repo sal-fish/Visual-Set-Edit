@@ -1,0 +1,14 @@
+build/
+.gradle/
+*.log
+*.jar
+*.zip
+*.tar.gz
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+run/
+logs/
+crash-reports/
