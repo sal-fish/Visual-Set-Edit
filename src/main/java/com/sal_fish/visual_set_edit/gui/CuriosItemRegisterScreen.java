@@ -5,9 +5,11 @@ import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,6 +19,7 @@ public class CuriosItemRegisterScreen extends Screen {
 
     private final Screen parent;
     private final String initialItemId;
+    private String editingNbt; // 当前编辑的条目 NBT，null 表示不限 NBT
 
     private String selectedItemId = null;
     private final List<String> selectedSlots = new ArrayList<>();
@@ -25,17 +28,72 @@ public class CuriosItemRegisterScreen extends Screen {
     private boolean canQuickEquip = true;
     private boolean canRemove = true;
 
+    private String capturedNbt = "";
+
+    // 原有构造函数（新建）
     public CuriosItemRegisterScreen(Screen parent) {
-        this(parent, null);
+        this(parent, null, null);
     }
 
     public CuriosItemRegisterScreen(Screen parent, String initialItemId) {
+        this(parent, initialItemId, null);
+    }
+
+    // 新增：可传入编辑的 NBT
+    public CuriosItemRegisterScreen(Screen parent, String initialItemId, String editingNbt) {
         super(Component.translatable("visual_set_edit.gui.curios_register.title"));
         this.parent = parent;
         this.initialItemId = initialItemId;
+        this.editingNbt = editingNbt;
         if (initialItemId != null) {
             this.selectedItemId = initialItemId;
-            this.selectedSlots.addAll(CuriosItemMappingManager.getSlotsForItem(initialItemId));
+            loadEntryForEditing(initialItemId, editingNbt);
+        }
+    }
+
+    /**
+     * 根据 itemId 和 nbt 加载对应的注册条目，若找不到则按默认新建。
+     */
+    private void loadEntryForEditing(String itemId, String nbt) {
+        selectedSlots.clear();
+        List<CuriosItemMappingManager.RegisteredEntry> entries =
+                CuriosItemMappingManager.getEntries(itemId);
+
+        CuriosItemMappingManager.RegisteredEntry target = null;
+        if (nbt != null) {
+            // 精确匹配 nbt
+            for (CuriosItemMappingManager.RegisteredEntry e : entries) {
+                if (Objects.equals(e.nbt, nbt)) {
+                    target = e;
+                    break;
+                }
+            }
+        } else {
+            // 无 nbt 要求，取第一个（或 nbt 为 null 的）
+            for (CuriosItemMappingManager.RegisteredEntry e : entries) {
+                if (e.nbt == null) {
+                    target = e;
+                    break;
+                }
+            }
+            if (target == null && !entries.isEmpty()) {
+                target = entries.get(0); // 兜底
+            }
+        }
+
+        if (target != null) {
+            selectedSlots.addAll(target.slots);
+            canQuickEquip = target.canQuickEquip;
+            canRemove = target.canRemove;
+            capturedNbt = target.nbt != null ? target.nbt : "";
+            editingNbt = target.nbt; // 保持同步
+        } else {
+            // 新建条目，使用传入的 nbt（如果有）作为初始 NBT
+            capturedNbt = (nbt != null) ? nbt : "";
+            editingNbt = (nbt != null && !nbt.isEmpty()) ? nbt : null;
+            // 新建时槽位为空，开关默认 true
+            canQuickEquip = true;
+            canRemove = true;
         }
     }
 
@@ -45,6 +103,7 @@ public class CuriosItemRegisterScreen extends Screen {
 
         int centerX = width / 2 - 100;
         int y = 30;
+        int halfWidth = 99;
 
         // 物品选择按钮
         Button selectItemButton = Button.builder(
@@ -53,19 +112,47 @@ public class CuriosItemRegisterScreen extends Screen {
                     assert minecraft != null;
                     minecraft.setScreen(new ItemListScreen(this, "", rl -> {
                         selectedItemId = rl.toString();
-                        selectedSlots.clear();
-                        selectedSlots.addAll(CuriosItemMappingManager.getSlotsForItem(selectedItemId));
+                        // 重新选择物品后，清除编辑状态，加载第一个条目
+                        editingNbt = null;
+                        loadEntryForEditing(selectedItemId, null);
                         minecraft.setScreen(this);
                     }));
                 }
-        ).pos(centerX, y).size(200, 20).build();
+        ).pos(centerX, y).size(halfWidth, 20).build();
         addRenderableWidget(selectItemButton);
-        y += 30;
 
-        // 可滚动的槽位列表（居中显示）
+        // 手持物品 NBT 获取
+        Button captureNbtButton = Button.builder(
+                Component.translatable("visual_set_edit.gui.curios_register.capture_nbt"),
+                btn -> {
+                    assert minecraft != null;
+                    if (minecraft.player != null) {
+                        ItemStack held = minecraft.player.getMainHandItem();
+                        if (!held.isEmpty()) {
+                            ResourceLocation key = ForgeRegistries.ITEMS.getKey(held.getItem());
+                            if (key != null) {
+                                selectedItemId = key.toString();
+                                CompoundTag tag = held.getTag();
+                                String newNbt = tag != null ? tag.toString() : "";
+                                capturedNbt = newNbt;
+                                editingNbt = newNbt.isEmpty() ? null : newNbt;
+                                loadEntryForEditing(selectedItemId, editingNbt);
+                                selectItemButton.setMessage(getItemButtonText());
+                                // 重新构建界面以刷新槽位勾选状态
+                                init();
+                            }
+                        }
+                    }
+                }
+        ).pos(centerX + halfWidth + 2, y).size(halfWidth, 20).build();
+        addRenderableWidget(captureNbtButton);
+
+        y += 22;
+
+        // 可滚动的槽位列表
         if (selectedItemId != null && IntegrationManager.isCuriosLoaded()) {
             int listWidth = 200;
-            int listHeight = Math.min(6 * 22, height - y - 100); // 最多6行
+            int listHeight = Math.min(6 * 22, height - y - 100);
             slotList = new ScrollableSelectionList(minecraft, listWidth, listHeight, y, 20,
                     entry -> {
                         if (entry instanceof SlotEntry slotEntry) {
@@ -120,14 +207,48 @@ public class CuriosItemRegisterScreen extends Screen {
                 btn -> {
                     if (selectedItemId != null) {
                         if (selectedSlots.isEmpty()) {
-                            CuriosItemMappingManager.removeMapping(selectedItemId);
+                            // 删除对应条目
+                            if (editingNbt != null) {
+                                List<CuriosItemMappingManager.RegisteredEntry> entries =
+                                        CuriosItemMappingManager.getEntries(selectedItemId);
+                                for (int i = 0; i < entries.size(); i++) {
+                                    if (Objects.equals(entries.get(i).nbt, editingNbt)) {
+                                        CuriosItemMappingManager.removeEntry(selectedItemId, i);
+                                        break;
+                                    }
+                                }
+                            } else {
+                                CuriosItemMappingManager.removeAllEntries(selectedItemId);
+                            }
                         } else {
-                            CuriosItemMappingManager.addMapping(
-                                    selectedItemId,
-                                    new ArrayList<>(selectedSlots),
-                                    canQuickEquip,
-                                    canRemove
-                            );
+                            // 添加或更新条目
+                            if (editingNbt != null) {
+                                // 先移除旧条目（如果存在）
+                                List<CuriosItemMappingManager.RegisteredEntry> entries =
+                                        new ArrayList<>(CuriosItemMappingManager.getEntries(selectedItemId));
+                                for (int i = 0; i < entries.size(); i++) {
+                                    if (Objects.equals(entries.get(i).nbt, editingNbt)) {
+                                        CuriosItemMappingManager.removeEntry(selectedItemId, i);
+                                        break;
+                                    }
+                                }
+                                CuriosItemMappingManager.addEntry(
+                                        selectedItemId,
+                                        new ArrayList<>(selectedSlots),
+                                        canQuickEquip,
+                                        canRemove,
+                                        editingNbt.isEmpty() ? null : editingNbt
+                                );
+                            } else {
+                                // 不限 NBT 的新条目
+                                CuriosItemMappingManager.addEntry(
+                                        selectedItemId,
+                                        new ArrayList<>(selectedSlots),
+                                        canQuickEquip,
+                                        canRemove,
+                                        null
+                                );
+                            }
                         }
                     }
                     assert minecraft != null;
