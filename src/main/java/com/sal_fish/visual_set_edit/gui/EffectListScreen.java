@@ -28,6 +28,7 @@ public class EffectListScreen extends Screen {
 
     @Override
     protected void init() {
+        clearWidgets();
         int x = width / 2 - 100;
         int y = 40;
 
@@ -52,7 +53,9 @@ public class EffectListScreen extends Screen {
                         // 清空当前阶段效果，导入选中阶段的效果（深拷贝）
                         phase.effects.clear();
                         for (EffectEntry entry : selected.effects) {
-                            phase.effects.add(copyEffect(entry));
+                            EffectEntry copy = copyEffect(entry);
+                            copy.resetUniqueId();
+                            phase.effects.add(copy);
                         }
                         minecraft.setScreen(this);
                     }));

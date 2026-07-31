@@ -21,7 +21,7 @@ public class SlotCondition {
     @Expose public int durabilityMinPercent = 0;
     @Expose public int durabilityMaxPercent = 100;
     @Expose public int minCount = 1;
-    @Expose public String exactNbt;   // EXACT 模式下用于比较的完整 NBT 字符串
+    @Expose public String exactNbt;
 
     public boolean matches(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
@@ -60,8 +60,13 @@ public class SlotCondition {
         if (nbtRule == NbtMatchRule.EXACT) {
             if (exactNbt != null && !exactNbt.isEmpty()) {
                 CompoundTag stackTag = stack.getTag();
-                String stackNbtStr = stackTag != null ? stackTag.toString() : "";
-                return stackNbtStr.equals(exactNbt);
+                if (stackTag == null) return false;
+                try {
+                    CompoundTag savedTag = net.minecraft.nbt.TagParser.parseTag(exactNbt);
+                    return savedTag.equals(stackTag);
+                } catch (Exception e) {
+                    return stackTag.toString().equals(exactNbt);
+                }
             }
             CompoundTag stackTag = stack.getTag();
             CompoundTag comp = stack.getItem().getDefaultInstance().getTag();

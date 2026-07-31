@@ -305,5 +305,6 @@
   "visual_set_edit.gui.condition.tag_name": "Tag Name",
   "visual_set_edit.gui.curios_register.capture_nbt": "Capture NBT",
   "visual_set_edit.gui.confirm_delete.title": "Confirm Deletion",
-  "visual_set_edit.gui.confirm_delete.message": "Are you sure you want to delete the registration for %s?"
+  "visual_set_edit.gui.confirm_delete.message": "Are you sure you want to delete the registration for %s?",
+  "visual_set_edit.gui.edit_full_nbt": "Edit NBT"
 }

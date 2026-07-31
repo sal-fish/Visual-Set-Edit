@@ -35,9 +35,14 @@ public class CuriosItemMappingManager {
         }
 
         public boolean matchesNbt(CompoundTag stackNbt) {
-            if (nbt == null) return true; // 不限 NBT
-            String stackStr = stackNbt != null ? stackNbt.toString() : "";
-            return stackStr.equals(nbt);
+            if (nbt == null) return true;
+            if (stackNbt == null) return false;
+            try {
+                CompoundTag savedTag = net.minecraft.nbt.TagParser.parseTag(nbt);
+                return savedTag.equals(stackNbt);
+            } catch (Exception e) {
+                return stackNbt.toString().equals(nbt);
+            }
         }
 
         // 用于在列表中显示时标识这个条目

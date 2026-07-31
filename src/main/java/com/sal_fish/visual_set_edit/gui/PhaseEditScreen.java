@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -185,13 +186,26 @@ public class PhaseEditScreen extends Screen {
 
             curX += tagButtonWidth + spacingBetween;
 
-            // 精确匹配按钮
-            boolean isExact = cond.nbtRule == NbtMatchRule.EXACT;
+            String nbtSymbol = switch (cond.nbtRule) {
+                case IGNORE -> "✗";
+                case EXACT -> "✓";
+                case CUSTOM_KEYS -> "○";
+            };
             Button exactButton = Button.builder(
-                    Component.literal(isExact ? "✓" : "✗"),
+                    Component.literal(nbtSymbol),
                     btn -> {
                         saveNameAndCount();
-                        cond.nbtRule = (cond.nbtRule == NbtMatchRule.EXACT) ? NbtMatchRule.IGNORE : NbtMatchRule.EXACT;
+                        // 循环切换
+                        switch (cond.nbtRule) {
+                            case IGNORE -> cond.nbtRule = NbtMatchRule.EXACT;
+                            case EXACT -> cond.nbtRule = NbtMatchRule.CUSTOM_KEYS;
+                            case CUSTOM_KEYS -> cond.nbtRule = NbtMatchRule.IGNORE;
+                        }
+                        // 根据模式清理/保留数据
+                        if (cond.nbtRule == NbtMatchRule.IGNORE) {
+                            cond.exactNbt = null;
+                            cond.nbtKeys = null;
+                        }
                         init();
                     }
             ).pos(curX, rowY).size(exactButtonWidth, rowHeight).build();
@@ -212,10 +226,30 @@ public class PhaseEditScreen extends Screen {
                                 if (key != null) {
                                     cond.itemId = key.toString();
                                     cond.tagId = null;
-                                    cond.nbtRule = NbtMatchRule.EXACT;
-                                    CompoundTag tag = held.getTag();
-                                    cond.exactNbt = tag != null ? tag.toString() : "";
-                                    init(); // 刷新按钮文字
+                                    // 打开全 NBT 编辑界面
+                                    String currentNbt = held.getTag() != null ? held.getTag().toString() : "";
+                                    if (minecraft != null) {
+                                        minecraft.setScreen(new FullNbtEditScreen(currentNbt, editedNbt -> {
+                                            cond.exactNbt = editedNbt;
+                                            // 自动解析并生成 nbtKeys
+                                            if (editedNbt != null) {
+                                                try {
+                                                    CompoundTag tag = TagParser.parseTag(editedNbt);
+                                                    Map<String, Object> keys = new HashMap<>();
+                                                    for (String k : tag.getAllKeys()) {
+                                                        keys.put(k, Objects.requireNonNull(tag.get(k)).getAsString());
+                                                    }
+                                                    cond.nbtKeys = keys.isEmpty() ? null : keys;
+                                                } catch (Exception e) {
+                                                    cond.nbtKeys = null;
+                                                }
+                                            } else {
+                                                cond.nbtKeys = null;
+                                            }
+                                            minecraft.setScreen(this);
+                                            init();
+                                        }));
+                                    }
                                 }
                             }
                         }
