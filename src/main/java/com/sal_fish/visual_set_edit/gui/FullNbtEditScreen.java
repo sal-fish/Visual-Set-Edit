@@ -2,7 +2,7 @@ package com.sal_fish.visual_set_edit.gui;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
@@ -14,7 +14,7 @@ public class FullNbtEditScreen extends Screen {
     private final Screen parent;
     private final String initialNbt;
     private final Consumer<String> onSave;
-    private EditBox textArea;
+    private MultiLineEditBox textArea;
 
     public FullNbtEditScreen(Screen parent, String initialNbt, Consumer<String> onSave) {
         super(Component.translatable("visual_set_edit.gui.edit_full_nbt"));
@@ -25,38 +25,40 @@ public class FullNbtEditScreen extends Screen {
 
     @Override
     protected void init() {
-        int width = 200;
-        int height = 20;
-        int x = (this.width - width) / 2;
-        int y = 30;
+        int margin = 10;
+        int titleY = 5;
+        int titleHeight = font.lineHeight + 5;
+        int buttonAreaHeight = 30;
+        int y = titleY + titleHeight;
+        int width = this.width - margin * 2;
+        int height = this.height - y - buttonAreaHeight - margin;
 
-        textArea = new EditBox(font, x, y, width, height, Component.literal("NBT"));
-        textArea.setMaxLength(65535);
+        textArea = new MultiLineEditBox(font, margin, y, width, height,
+                Component.literal("NBT"),
+                Component.translatable("visual_set_edit.gui.edit_full_nbt"));
         textArea.setValue(initialNbt != null ? initialNbt : "");
         addRenderableWidget(textArea);
-        textArea.setFocused(true);
+        setInitialFocus(textArea);
 
-        y += height + 10;
+        int buttonY = this.height - 25;
 
-        // 保存按钮
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.save"), btn -> {
             String edited = textArea.getValue().trim();
             if (!edited.isEmpty()) {
                 try {
-                    TagParser.parseTag(edited);  // 验证合法性
+                    TagParser.parseTag(edited);
                 } catch (Exception e) {
-                    return; // 格式错误不保存
+                    return;
                 }
             }
             onSave.accept(edited.isEmpty() ? null : edited);
             if (minecraft != null) minecraft.setScreen(parent);
-        }).pos(x, y).size(95, 20).build());
+        }).pos(this.width / 2 - 105, buttonY).size(100, 20).build());
 
-        // 取消按钮
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.cancel"), btn -> {
-            onSave.accept(initialNbt); // 放弃修改
+            onSave.accept(initialNbt);
             if (minecraft != null) minecraft.setScreen(parent);
-        }).pos(x + 105, y).size(95, 20).build());
+        }).pos(this.width / 2 + 5, buttonY).size(100, 20).build());
     }
 
     @Override
@@ -64,6 +66,6 @@ public class FullNbtEditScreen extends Screen {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partial);
         graphics.drawCenteredString(font, Component.translatable("visual_set_edit.gui.edit_full_nbt"),
-                width / 2, 10, 0xFFFFFF);
+                width / 2, 5, 0xFFFFFF);
     }
 }

@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.sal_fish.visual_set_edit.VisualSetEdit;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
 import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.IOException;
@@ -38,17 +40,30 @@ public class CuriosItemMappingManager {
             if (nbt == null) return true;
             if (stackNbt == null) return false;
             try {
-                CompoundTag savedTag = net.minecraft.nbt.TagParser.parseTag(nbt);
-                return savedTag.equals(stackNbt);
+                CompoundTag required = TagParser.parseTag(nbt);
+                return isSubset(required, stackNbt);
             } catch (Exception e) {
-                return stackNbt.toString().equals(nbt);
+                return false;
             }
+        }
+
+        private static boolean isSubset(CompoundTag required, CompoundTag actual) {
+            for (String key : required.getAllKeys()) {
+                if (!actual.contains(key)) return false;
+                Tag reqTag = required.get(key);
+                Tag actTag = actual.get(key);
+                if (reqTag instanceof CompoundTag reqComp && actTag instanceof CompoundTag actComp) {
+                    if (!isSubset(reqComp, actComp)) return false;
+                } else {
+                    if (reqTag != null && !reqTag.equals(actTag)) return false;
+                }
+            }
+            return true;
         }
 
         // 用于在列表中显示时标识这个条目
         public String getNbtSummary() {
             if (nbt == null || nbt.isEmpty()) return null;
-            // 提取简短的标识，避免太长
             if (nbt.length() > 30) {
                 return nbt.substring(0, 27) + "...";
             }

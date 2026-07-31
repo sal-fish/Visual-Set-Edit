@@ -121,11 +121,13 @@ public class CuriosItemRegisterScreen extends Screen {
         ).pos(centerX, y).size(halfWidth, 20).build();
         addRenderableWidget(selectItemButton);
 
-        // 手持物品 NBT 获取
+        // 手持物品 NBT 获取 → 现在打开编辑界面
         Button captureNbtButton = Button.builder(
                 Component.translatable("visual_set_edit.gui.curios_register.capture_nbt"),
                 btn -> {
                     assert minecraft != null;
+                    String initialNbt = capturedNbt; // 默认使用已保存的 NBT
+                    // 尝试从手持物品获取 NBT 作为初始编辑内容
                     if (minecraft.player != null) {
                         ItemStack held = minecraft.player.getMainHandItem();
                         if (!held.isEmpty()) {
@@ -133,16 +135,19 @@ public class CuriosItemRegisterScreen extends Screen {
                             if (key != null) {
                                 selectedItemId = key.toString();
                                 CompoundTag tag = held.getTag();
-                                String newNbt = tag != null ? tag.toString() : "";
-                                capturedNbt = newNbt;
-                                editingNbt = newNbt.isEmpty() ? null : newNbt;
-                                loadEntryForEditing(selectedItemId, editingNbt);
+                                initialNbt = tag != null ? tag.toString() : "";
                                 selectItemButton.setMessage(getItemButtonText());
-                                // 重新构建界面以刷新槽位勾选状态
-                                init();
                             }
                         }
                     }
+                    // 打开 NBT 编辑界面
+                    minecraft.setScreen(new FullNbtEditScreen(this, initialNbt, editedNbt -> {
+                        capturedNbt = (editedNbt != null) ? editedNbt : "";
+                        editingNbt = capturedNbt.isEmpty() ? null : capturedNbt;
+                        loadEntryForEditing(selectedItemId, editingNbt);
+                        minecraft.setScreen(this);
+                        init(); // 刷新界面（槽位勾选等）
+                    }));
                 }
         ).pos(centerX + halfWidth + 2, y).size(halfWidth, 20).build();
         addRenderableWidget(captureNbtButton);
