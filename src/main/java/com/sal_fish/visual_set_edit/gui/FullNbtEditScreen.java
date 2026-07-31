@@ -4,7 +4,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 
@@ -24,7 +23,7 @@ public class FullNbtEditScreen extends Screen {
     @Override
     protected void init() {
         int width = 200;
-        int height = 120;
+        int height = 20;
         int x = (this.width - width) / 2;
         int y = 30;
 
