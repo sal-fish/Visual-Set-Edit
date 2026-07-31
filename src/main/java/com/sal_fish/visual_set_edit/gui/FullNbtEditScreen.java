@@ -6,16 +6,19 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
 public class FullNbtEditScreen extends Screen {
+    private final Screen parent;
     private final String initialNbt;
     private final Consumer<String> onSave;
     private EditBox textArea;
 
-    public FullNbtEditScreen(String initialNbt, Consumer<String> onSave) {
+    public FullNbtEditScreen(Screen parent, String initialNbt, Consumer<String> onSave) {
         super(Component.translatable("visual_set_edit.gui.edit_full_nbt"));
+        this.parent = parent;
         this.initialNbt = initialNbt;
         this.onSave = onSave;
     }
@@ -33,31 +36,31 @@ public class FullNbtEditScreen extends Screen {
         addRenderableWidget(textArea);
         textArea.setFocused(true);
 
-        y += height + 5;
+        y += height + 10;
 
+        // 保存按钮
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.save"), btn -> {
             String edited = textArea.getValue().trim();
-            // 简单验证：若用户输入非空，尝试解析为 Tag，避免非法 NBT
             if (!edited.isEmpty()) {
                 try {
-                    TagParser.parseTag(edited);
+                    TagParser.parseTag(edited);  // 验证合法性
                 } catch (Exception e) {
-                    // 解析失败不保存，可提示（这里简化为不保存）
-                    return;
+                    return; // 格式错误不保存
                 }
             }
             onSave.accept(edited.isEmpty() ? null : edited);
-            if (minecraft != null) minecraft.setScreen(null);
+            if (minecraft != null) minecraft.setScreen(parent);
         }).pos(x, y).size(95, 20).build());
 
+        // 取消按钮
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.cancel"), btn -> {
             onSave.accept(initialNbt); // 放弃修改
-            if (minecraft != null) minecraft.setScreen(null);
+            if (minecraft != null) minecraft.setScreen(parent);
         }).pos(x + 105, y).size(95, 20).build());
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partial) {
+    public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partial) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partial);
         graphics.drawCenteredString(font, Component.translatable("visual_set_edit.gui.edit_full_nbt"),

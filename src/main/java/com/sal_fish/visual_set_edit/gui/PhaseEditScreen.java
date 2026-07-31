@@ -226,12 +226,10 @@ public class PhaseEditScreen extends Screen {
                                 if (key != null) {
                                     cond.itemId = key.toString();
                                     cond.tagId = null;
-                                    // 打开全 NBT 编辑界面
                                     String currentNbt = held.getTag() != null ? held.getTag().toString() : "";
                                     if (minecraft != null) {
-                                        minecraft.setScreen(new FullNbtEditScreen(currentNbt, editedNbt -> {
+                                        minecraft.setScreen(new FullNbtEditScreen(this, currentNbt, editedNbt -> {
                                             cond.exactNbt = editedNbt;
-                                            // 自动解析并生成 nbtKeys
                                             if (editedNbt != null) {
                                                 try {
                                                     CompoundTag tag = TagParser.parseTag(editedNbt);
