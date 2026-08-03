@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.event;
 
 import com.sal_fish.visual_set_edit.config.PresetManager;
+import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import com.sal_fish.visual_set_edit.data.Preset;
 import com.sal_fish.visual_set_edit.data.SetPhase;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
@@ -510,6 +511,11 @@ public class SetEventHandler {
     }
 
     private boolean isPhaseActive(LivingEntity entity, SetPhase phase) {
+        // 排序
+        List<SlotCondition> sortedConditions = new ArrayList<>(phase.slotConditions);
+        sortedConditions.sort(Comparator.comparingInt(cond ->
+                (cond.nbtRule == NbtMatchRule.IGNORE) ? 1 : 0));
+
         int matched = 0;
         Map<String, ItemStack> equipment = new HashMap<>();
         equipment.put("HEAD", entity.getItemBySlot(EquipmentSlot.HEAD));
@@ -521,38 +527,31 @@ public class SetEventHandler {
 
         Map<String, Set<Integer>> usedIndices = new HashMap<>();
 
-        //VisualSetEdit.LOGGER.info("[VSE] Phase: {} requiredCount={}", phase.fallbackName, phase.requiredCount);
-
-        for (SlotCondition cond : phase.slotConditions) {
+        for (SlotCondition cond : sortedConditions) {
             if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
                 String realSlotId = cond.slot.substring(7);
                 List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(entity, realSlotId);
-                //VisualSetEdit.LOGGER.info("[VSE]   Slot: {} stacks.size={}", realSlotId, stacks.size());
 
                 boolean found = false;
                 for (int i = 0; i < stacks.size(); i++) {
                     ItemStack stack = stacks.get(i);
                     boolean matches = cond.matches(stack);
                     boolean used = usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i);
-                    //VisualSetEdit.LOGGER.info("[VSE]     Index {} item={} matches={} used={}", i, stack.getDisplayName().getString(), matches, used);
 
                     if (used) continue;
                     if (matches) {
                         found = true;
                         usedIndices.computeIfAbsent(realSlotId, k -> new HashSet<>()).add(i);
-                        //VisualSetEdit.LOGGER.info("[VSE]     -> Used index {}", i);
                         break;
                     }
                 }
                 if (found) matched++;
-                //VisualSetEdit.LOGGER.info("[VSE]   Matched so far: {}", matched);
             } else {
                 ItemStack stack = equipment.get(cond.slot);
                 if (cond.matches(stack)) matched++;
             }
         }
 
-        //VisualSetEdit.LOGGER.info("[VSE] Final matched={} required={}", matched, phase.requiredCount);
         if (matched < phase.requiredCount) return false;
         for (var cond : phase.additionalConditions) {
             if (!cond.test(entity)) return false;
