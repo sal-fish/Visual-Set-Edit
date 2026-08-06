@@ -54,7 +54,10 @@ public class PotionEffectEntry extends EffectEntry {
             if (entity.hasEffect(effect)) return;
         } else {
             MobEffectInstance current = entity.getEffect(effect);
-            if (current != null && current.getDuration() > 20) return;
+            if (current != null) {
+                if (current.getAmplifier() >= amplifier && current.getDuration() > 20) return;
+                entity.removeEffect(effect);
+            }
 
             if (cooldownSeconds > 0) {
                 ensureUniqueId();
