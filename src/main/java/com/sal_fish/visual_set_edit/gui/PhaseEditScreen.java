@@ -257,6 +257,19 @@ public class PhaseEditScreen extends Screen {
 
             curX += captureButtonWidth + spacingBetween;
 
+            // 自定义描述编辑按钮
+            Button customDescButton = Button.builder(Component.literal("✎"), btn -> {
+                saveNameAndCount();
+                assert minecraft != null;
+                minecraft.setScreen(new TextInputScreen(this, cond.customDisplayText != null ? cond.customDisplayText : "", newText -> {
+                    cond.customDisplayText = newText;
+                    minecraft.setScreen(this);
+                    init();
+                }));
+            }).pos(curX, rowY).size(18, rowHeight).build();
+            addRenderableWidget(customDescButton);
+            curX += 18 + spacingBetween;
+
             // 删除按钮
             final SlotCondition toRemove = cond;
             addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.delete"), btn -> {
@@ -364,6 +377,10 @@ public class PhaseEditScreen extends Screen {
     }
 
     private Component getSlotItemText(SlotCondition cond) {
+        if (cond.customDisplayText != null && !cond.customDisplayText.isEmpty()) {
+            return Component.literal(cond.customDisplayText);
+        }
+
         if (cond.itemId != null && !cond.itemId.isEmpty()) {
             ResourceLocation rl = ResourceLocation.tryParse(cond.itemId);
             if (rl != null) {

@@ -306,5 +306,17 @@
   "visual_set_edit.gui.curios_register.capture_nbt": "Capture NBT",
   "visual_set_edit.gui.confirm_delete.title": "Confirm Deletion",
   "visual_set_edit.gui.confirm_delete.message": "Are you sure you want to delete the registration for %s?",
-  "visual_set_edit.gui.edit_full_nbt": "Edit NBT"
+  "visual_set_edit.gui.edit_full_nbt": "Edit NBT",
+  "visual_set_edit.gui.effect.dynamic_attribute.source_attribute": "Source Attribute",
+  "visual_set_edit.gui.effect.dynamic_attribute.var.ATTRIBUTE_VALUE": "Attribute Value",
+  "visual_set_edit.gui.effect.command.trigger": "Trigger",
+  "visual_set_edit.gui.effect.command.trigger.activate": "On Activate",
+  "visual_set_edit.gui.effect.command.trigger.deactivate": "On Deactivate",
+  "visual_set_edit.gui.effect.command.trigger.repeat": "Repeat",
+  "visual_set_edit.gui.effect.command.trigger.on_attack": "On Attack",
+  "visual_set_edit.gui.effect.command.trigger.on_hurt": "On Hurt",
+  "visual_set_edit.gui.effect.command.trigger.on_kill": "On Kill",
+  "visual_set_edit.gui.effect.command.trigger.on_death": "On Death",
+  "visual_set_edit.gui.effect.command.probability": "Probability (0~1)",
+  "visual_set_edit.gui.edit_text": "Edit Text"
 }

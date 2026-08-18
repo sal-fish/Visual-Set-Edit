@@ -21,6 +21,7 @@ public class SlotCondition {
     @Expose public int durabilityMinPercent = 0;
     @Expose public int durabilityMaxPercent = 100;
     @Expose public int minCount = 1;
+    @Expose public String customDisplayText = "";
     @Expose public String exactNbt;
 
     public boolean matches(ItemStack stack) {

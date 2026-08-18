@@ -86,7 +86,28 @@ public class SetEventHandler {
 
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
+        LivingEntity dead = event.getEntity();
+
+        // 死亡者自身触发：ON_DEATH
+        for (var active : ActiveSetTracker.getActivePhases(dead)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_DEATH) {
+                    cmd.executeCommands(dead, cmd.commands);
+                }
+            }
+        }
+
         if (event.getSource().getEntity() instanceof LivingEntity killer) {
+            // 击杀者触发：ON_KILL
+            for (var active : ActiveSetTracker.getActivePhases(killer)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_KILL) {
+                        cmd.executeCommands(killer, cmd.commands);
+                    }
+                }
+            }
+
+            // 原有击杀计数逻辑
             for (var active : ActiveSetTracker.getActivePhases(killer)) {
                 for (EffectEntry effect : active.phase().effects) {
                     if (effect instanceof DynamicAttributeEffectEntry dynEff
@@ -105,6 +126,22 @@ public class SetEventHandler {
         LAST_HURT_AMOUNT.put(target.getUUID(), event.getAmount());
 
         if (event.getSource().getEntity() instanceof LivingEntity attacker) {
+            for (var active : ActiveSetTracker.getActivePhases(attacker)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_ATTACK) {
+                        cmd.executeCommands(attacker, cmd.commands);
+                    }
+                }
+            }
+
+            for (var active : ActiveSetTracker.getActivePhases(target)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_HURT) {
+                        cmd.executeCommands(target, cmd.commands);
+                    }
+                }
+            }
+
             // 药水 ATTACK_TARGET
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
@@ -113,12 +150,11 @@ public class SetEventHandler {
                         if (effect != null) {
                             int dur = pot.durationSeconds == -1 ? MobEffectInstance.INFINITE_DURATION :
                                     (pot.durationSeconds <= 0 ? 60 : pot.durationSeconds * 20);
-                            target.addEffect(new MobEffectInstance(effect, dur, pot.amplifier,false, pot.showParticles), attacker);
+                            target.addEffect(new MobEffectInstance(effect, dur, pot.amplifier, false, pot.showParticles), attacker);
                         }
                     }
                 }
             }
-
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof L2HostilityTraitEffectEntry traitEff
@@ -315,7 +351,7 @@ public class SetEventHandler {
         long gameTime = entity.level().getGameTime();
         for (var active : ActiveSetTracker.getActivePhases(entity)) {
             for (EffectEntry entry : active.phase().effects) {
-                if (entry instanceof CommandEffectEntry cmd && cmd.mode == CommandEffectEntry.Mode.REPEATING) {
+                if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.REPEAT) {
                     cmd.ensureUniqueId();
                     String key = "vse_cmd_" + cmd.uniqueId;
                     long lastExec = entity.getPersistentData().getLong(key);
@@ -328,7 +364,7 @@ public class SetEventHandler {
                     }
 
                     if (gameTime - lastExec >= intervalTicks) {
-                        cmd.executeCommands(entity, cmd.activateCommands);
+                        cmd.executeCommands(entity, cmd.commands);
                         entity.getPersistentData().putLong(key, gameTime);
                     }
                 }

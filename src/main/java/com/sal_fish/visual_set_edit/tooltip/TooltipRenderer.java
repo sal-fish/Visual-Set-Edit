@@ -167,6 +167,10 @@ public class TooltipRenderer {
     }
 
     private String getConditionDescription(SlotCondition cond) {
+        if (cond.customDisplayText != null && !cond.customDisplayText.isEmpty()) {
+            return cond.customDisplayText;
+        }
+
         if (cond.tagId != null && !cond.tagId.isEmpty()) {
             return "tag:" + cond.tagId;
         } else if (cond.itemId != null && !cond.itemId.isEmpty()) {

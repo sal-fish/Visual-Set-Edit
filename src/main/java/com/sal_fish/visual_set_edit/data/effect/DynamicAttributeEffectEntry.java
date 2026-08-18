@@ -23,7 +23,8 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         HEALTH, FOOD, XP_LEVEL, EQUIPPED_DURATION,
         KILL_COUNT_SINCE_EQUIP,
         L2H_CHUNK_DIFFICULTY,
-        L2H_PLAYER_DIFFICULTY
+        L2H_PLAYER_DIFFICULTY,
+        ATTRIBUTE_VALUE
         }
 
     public enum FormulaType {
@@ -39,6 +40,7 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
     @Expose public double clipMinX = Double.NaN;
     @Expose public double clipMaxX = Double.NaN;
     @Expose public String uniqueId;
+    @Expose public String sourceAttributeId = "";
 
     private transient Long startTick = null;
 
@@ -59,6 +61,9 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         ensureUniqueId();
         if (coefficients == null || coefficients.length == 0) {
             coefficients = new double[]{0, 0};
+        }
+        if (sourceAttributeId == null) {
+            sourceAttributeId = "";
         }
     }
 
@@ -139,6 +144,24 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             case KILL_COUNT_SINCE_EQUIP -> raw = entity.getPersistentData().getInt("vse_dynamic_kill_" + uniqueId);
             case L2H_CHUNK_DIFFICULTY -> raw = IntegrationManager.getL2ChunkDifficulty(entity);
             case L2H_PLAYER_DIFFICULTY -> raw = IntegrationManager.getL2PlayerDifficulty(entity);
+            case ATTRIBUTE_VALUE -> {
+                if (sourceAttributeId == null || sourceAttributeId.isEmpty()) {
+                    raw = 0;
+                } else {
+                    Attribute sourceAttr = ForgeRegistries.ATTRIBUTES.getValue(
+                            new ResourceLocation(sourceAttributeId));
+                    if (sourceAttr == null) {
+                        raw = 0;
+                    } else {
+                        AttributeInstance instance = entity.getAttribute(sourceAttr);
+                        if (instance == null) {
+                            raw = 0;
+                        } else {
+                            raw = instance.getValue();
+                        }
+                    }
+                }
+            }
             default -> raw = 0;
         }
         if (!Double.isNaN(clipMinX) && raw < clipMinX) raw = clipMinX;
@@ -223,7 +246,15 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             }
         }
 
-        String varName = Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var." + variableType.name()).getString();
+        String varName;
+        if (variableType == VariableType.ATTRIBUTE_VALUE && !sourceAttributeId.isEmpty()) {
+            Attribute sourceAttr = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(sourceAttributeId));
+            varName = sourceAttr != null
+                    ? Component.translatable(sourceAttr.getDescriptionId()).getString()
+                    : sourceAttributeId;
+        } else {
+            varName = Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var." + variableType.name()).getString();
+        }
         return Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.display", name, varName).getString();
     }
 }

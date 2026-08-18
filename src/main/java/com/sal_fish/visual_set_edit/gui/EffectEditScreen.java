@@ -42,6 +42,9 @@ public class EffectEditScreen extends Screen {
     private double amount;
     private AttributeModifier.Operation attrOperation = AttributeModifier.Operation.ADDITION;
 
+    private String dynamicSourceAttributeId = "";
+    private Button selectSourceAttributeButton;
+
     // Ability
     private String abilityId = "FLIGHT";
 
@@ -50,6 +53,8 @@ public class EffectEditScreen extends Screen {
     private CommandEffectEntry.Mode commandMode = CommandEffectEntry.Mode.IMPULSE;
     private int commandRepeatInterval = 1;
     private EditBox commandIntervalEdit;
+    private CommandEffectEntry.Trigger commandTrigger = CommandEffectEntry.Trigger.ACTIVATE;
+    private double commandProbability = 1.0;
 
     // Iron Spell
     private String spellId = "";
@@ -131,10 +136,15 @@ public class EffectEditScreen extends Screen {
         } else if (existing instanceof AbilityEffectEntry ab) {
             effectType = "ability"; abilityId = ab.abilityId;
         } else if (existing instanceof CommandEffectEntry cmd) {
-            effectType = "command"; commands = cmd.activateCommands != null && !cmd.activateCommands.isEmpty()
-                    ? String.join(";", cmd.activateCommands) : "";
+            effectType = "command";
+            commandTrigger = cmd.trigger != null ? cmd.trigger : CommandEffectEntry.Trigger.ACTIVATE;
+            commands = cmd.commands != null && !cmd.commands.isEmpty()
+                    ? String.join(";", cmd.commands)
+                    : (cmd.activateCommands != null && !cmd.activateCommands.isEmpty()
+                    ? String.join(";", cmd.activateCommands) : "");
             commandMode = cmd.mode != null ? cmd.mode : CommandEffectEntry.Mode.IMPULSE;
             commandRepeatInterval = cmd.repeatIntervalSeconds > 0 ? cmd.repeatIntervalSeconds : 1;
+            commandProbability = cmd.probability;
         } else if (existing instanceof IronSpellEffectEntry iron) {
             effectType = "iron_spell"; spellId = iron.spellId != null ? iron.spellId : "";
             spellLevel = iron.spellLevel > 0 ? iron.spellLevel : 1;
@@ -158,6 +168,7 @@ public class EffectEditScreen extends Screen {
             dynamicBase = dynAttr.base;
             dynamicClipMinX = dynAttr.clipMinX;
             dynamicClipMaxX = dynAttr.clipMaxX;
+            dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
         } else if (existing instanceof L2DifficultyModEffectEntry mod) {
             effectType = "l2_difficulty_mod";
             l2DifficultyAmount = mod.amount;
@@ -364,33 +375,65 @@ public class EffectEditScreen extends Screen {
     }
 
     private int buildCommandFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        // 触发时机选择
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                Component.translatable("visual_set_edit.gui.effect.command.activate"), font)); y += rowHeight;
-        commandsEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                Component.translatable("visual_set_edit.gui.effect.command.activate"));
-        commandsEdit.setValue(commands); commandsEdit.setMaxLength(5201314);
-        addRenderableWidget(commandsEdit); y += rowHeight + spacing;
-
-        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                Component.translatable("visual_set_edit.gui.effect.command.mode"), font)); y += rowHeight;
-        CycleButton<CommandEffectEntry.Mode> commandModeButton = CycleButton.<CommandEffectEntry.Mode>builder(
-                        m -> Component.translatable("visual_set_edit.gui.effect.command.mode." + m.name().toLowerCase()))
-                .withValues(CommandEffectEntry.Mode.values()).displayOnlyValue().withInitialValue(commandMode)
+                Component.translatable("visual_set_edit.gui.effect.command.trigger"), font));
+        y += rowHeight;
+        CycleButton<CommandEffectEntry.Trigger> triggerButton = CycleButton.<CommandEffectEntry.Trigger>builder(
+                        t -> Component.translatable("visual_set_edit.gui.effect.command.trigger." + t.name().toLowerCase()))
+                .withValues(CommandEffectEntry.Trigger.values())
+                .displayOnlyValue()
+                .withInitialValue(commandTrigger)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                        Component.translatable("visual_set_edit.gui.effect.command.mode"), (btn, val) -> {
-                            commandMode = val;
+                        Component.translatable("visual_set_edit.gui.effect.command.trigger"),
+                        (btn, val) -> {
+                            commandTrigger = val;
                             init();
                         });
-        addRenderableWidget(commandModeButton); y += rowHeight + spacing;
+        addRenderableWidget(triggerButton);
+        y += rowHeight + spacing;
 
-        if (commandMode == CommandEffectEntry.Mode.REPEATING) {
+        // 命令输入
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.activate"), font));
+        y += rowHeight;
+        commandsEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.activate"));
+        commandsEdit.setMaxLength(5201314);
+        commandsEdit.setValue(commands);
+        addRenderableWidget(commandsEdit);
+        y += rowHeight + spacing;
+
+        // 概率输入
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.probability"), font));
+        y += rowHeight;
+
+        EditBox probabilityEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.probability"));
+        probabilityEdit.setMaxLength(10);
+        probabilityEdit.setValue(String.valueOf(commandProbability));
+        probabilityEdit.setResponder(s -> {
+            try {
+                commandProbability = Double.parseDouble(s);
+            } catch (Exception ignored) {}
+        });
+        addRenderableWidget(probabilityEdit);
+        y += rowHeight + spacing;
+
+        if (commandTrigger == CommandEffectEntry.Trigger.REPEAT) {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                    Component.translatable("visual_set_edit.gui.effect.command.repeat_interval"), font)); y += rowHeight;
+                    Component.translatable("visual_set_edit.gui.effect.command.repeat_interval"), font));
+            y += rowHeight;
             commandIntervalEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.effect.command.repeat_interval"));
-            commandIntervalEdit.setMaxLength(10); commandIntervalEdit.setValue(String.valueOf(commandRepeatInterval));
-            addRenderableWidget(commandIntervalEdit); y += rowHeight + spacing;
-        } else { commandIntervalEdit = null; }
+            commandIntervalEdit.setMaxLength(10);
+            commandIntervalEdit.setValue(String.valueOf(commandRepeatInterval));
+            addRenderableWidget(commandIntervalEdit);
+            y += rowHeight + spacing;
+        } else {
+            commandIntervalEdit = null;
+        }
 
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -537,7 +580,7 @@ public class EffectEditScreen extends Screen {
     }
 
     private int buildDynamicAttributeFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
-        // 属性选择
+        // 属性选择（目标属性）
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.attribute.id"), font)); y += rowHeight;
         selectDynamicAttributeButton = Button.builder(getDynamicAttributeButtonText(), btn -> {
@@ -566,8 +609,30 @@ public class EffectEditScreen extends Screen {
                         v -> Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var." + v.name()))
                 .withValues(DynamicAttributeEffectEntry.VariableType.values()).displayOnlyValue().withInitialValue(dynamicVariable)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                        Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.variable"), (btn, val) -> dynamicVariable = val);
+                        Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.variable"), (btn, val) -> {
+                            dynamicVariable = val;
+                            init(); // 切换变量类型后刷新界面，以显示/隐藏源属性选择器
+                        });
         addRenderableWidget(varButton); y += rowHeight + spacing;
+
+        // 当变量类型为“属性值”时，显示源属性选择与取值模式
+        if (dynamicVariable == DynamicAttributeEffectEntry.VariableType.ATTRIBUTE_VALUE) {
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.source_attribute"), font));
+            y += rowHeight;
+
+            selectSourceAttributeButton = Button.builder(getDynamicSourceAttributeButtonText(), btn -> {
+                assert minecraft != null;
+                minecraft.setScreen(new AttributeListScreen(this, rl -> {
+                    dynamicSourceAttributeId = rl.toString();
+                    if (selectSourceAttributeButton != null) {
+                        selectSourceAttributeButton.setMessage(getDynamicSourceAttributeButtonText());
+                    }
+                }));
+            }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
+            addRenderableWidget(selectSourceAttributeButton);
+            y += rowHeight + spacing;
+        }
 
         // 公式类型
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -739,6 +804,20 @@ public class EffectEditScreen extends Screen {
         return Component.literal(slotCountSlotId);
     }
 
+    private Component getDynamicSourceAttributeButtonText() {
+        if (dynamicSourceAttributeId == null || dynamicSourceAttributeId.isEmpty()) {
+            return Component.translatable("visual_set_edit.gui.click_select_item");
+        }
+        ResourceLocation rl = ResourceLocation.tryParse(dynamicSourceAttributeId);
+        if (rl != null) {
+            Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(rl);
+            if (attr != null) {
+                return Component.translatable(attr.getDescriptionId());
+            }
+        }
+        return Component.literal(dynamicSourceAttributeId);
+    }
+
     private EffectEntry createEffect() {
         EffectEntry e = null;
         switch (effectType) {
@@ -767,12 +846,17 @@ public class EffectEditScreen extends Screen {
             case "ability" -> { AbilityEffectEntry ab = new AbilityEffectEntry(); ab.abilityId = abilityId; e = ab; }
             case "command" -> {
                 CommandEffectEntry cmd = new CommandEffectEntry();
-                if (commandsEdit != null && !commandsEdit.getValue().trim().isEmpty())
-                    cmd.activateCommands = List.of(commandsEdit.getValue().split(";"));
-                cmd.mode = commandMode;
-                if (commandMode == CommandEffectEntry.Mode.REPEATING && commandIntervalEdit != null)
+                cmd.trigger = commandTrigger;
+                if (commandsEdit != null && !commandsEdit.getValue().trim().isEmpty()) {
+                    cmd.commands = List.of(commandsEdit.getValue().split(";"));
+                }
+                if (commandTrigger == CommandEffectEntry.Trigger.REPEAT && commandIntervalEdit != null) {
                     try { cmd.repeatIntervalSeconds = Integer.parseInt(commandIntervalEdit.getValue()); } catch (Exception ex) { cmd.repeatIntervalSeconds = 1; }
-                else cmd.repeatIntervalSeconds = 0;
+                } else {
+                    cmd.repeatIntervalSeconds = 0;
+                }
+                cmd.activateCommands = cmd.commands;
+                cmd.probability = commandProbability;
                 e = cmd;
             }
             case "iron_spell" -> {
@@ -811,6 +895,7 @@ public class EffectEditScreen extends Screen {
                 dyn.base = dynamicBase;
                 dyn.clipMinX = parseDouble(dynamicClipMinEdit);
                 dyn.clipMaxX = parseDouble(dynamicClipMaxEdit);
+                dyn.sourceAttributeId = dynamicSourceAttributeId;
                 e = dyn;
             }
             case "tag" -> {
@@ -875,5 +960,9 @@ public class EffectEditScreen extends Screen {
 
     public EffectEntry getExistingEffect() {
         return existingEffect;
+    }
+
+    public CommandEffectEntry.Mode getCommandMode() {
+        return commandMode;
     }
 }
