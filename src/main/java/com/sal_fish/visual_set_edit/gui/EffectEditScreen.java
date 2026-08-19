@@ -3,10 +3,7 @@ package com.sal_fish.visual_set_edit.gui;
 import com.sal_fish.visual_set_edit.data.effect.*;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -946,20 +943,26 @@ public class EffectEditScreen extends Screen {
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partial) {
         this.renderBackground(graphics);
 
-        // 应用滚动偏移
-        graphics.pose().pushPose();
-        graphics.pose().translate(0, -scrollOffset, 0);
+        int offset = scrollOffset;
 
-        // 渲染控件（传入偏移后的鼠标Y以确保悬停效果正确）
-        super.render(graphics, mouseX, mouseY + scrollOffset, partial);
+        for (var child : children()) {
+            if (child instanceof AbstractWidget widget) {
+                widget.setY(widget.getY() - offset);
+            }
+        }
 
-        graphics.pose().popPose();
+        super.render(graphics, mouseX, mouseY, partial);
 
-        // 绘制固定在顶部的标题
+        for (var child : children()) {
+            if (child instanceof AbstractWidget widget) {
+                widget.setY(widget.getY() + offset);
+            }
+        }
+
         graphics.drawCenteredString(font, Component.translatable("visual_set_edit.gui.edit_effect"),
                 width / 2, 10, 0xFFFFFF);
 
-        // 绘制滚动条
+        // 绘制滚动条（原有逻辑保持不变）
         if (contentHeight > this.height) {
             int scrollBarHeight = (int) ((float) this.height / contentHeight * this.height);
             int scrollBarY = (int) ((float) scrollOffset / (contentHeight - this.height) * (this.height - scrollBarHeight));
