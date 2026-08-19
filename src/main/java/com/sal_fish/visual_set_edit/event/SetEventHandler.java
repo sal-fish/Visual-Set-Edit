@@ -271,6 +271,15 @@ public class SetEventHandler {
         Set<String> candidatePresetIds = new HashSet<>();
         for (String id : equippedIds) candidatePresetIds.addAll(PresetManager.getPresetIdsForItem(id));
 
+        for (Preset preset : PresetManager.getPresets()) {
+            for (SetPhase phase : preset.phases) {
+                if (phase.requiredCount <= 0) {
+                    candidatePresetIds.add(preset.id);
+                    break;
+                }
+            }
+        }
+
         List<ActiveSetTracker.ActivePhase> newPhases;
         if (candidatePresetIds.isEmpty()) {
             newPhases = evaluateAllPresets(entity);
