@@ -680,6 +680,32 @@ public class EffectEditScreen extends Screen {
                 addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 1);
                 y += rowHeight + spacing;
             }
+            case POWER -> {
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "a", 0);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "k", 1);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 2);
+                y += rowHeight + spacing;
+            }
+            case STEP -> {
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "a", 0);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "b", 1);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 2);
+                y += rowHeight + spacing;
+            }
+            case SIGMOID -> {
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "a", 0);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "b", 1);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 2);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "d", 3);
+                y += rowHeight + spacing;
+            }
         }
 
         // 裁剪范围

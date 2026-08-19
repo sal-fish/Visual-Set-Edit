@@ -28,7 +28,8 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         }
 
     public enum FormulaType {
-        LINEAR, QUADRATIC, EXPONENTIAL, LOGARITHMIC
+        LINEAR, QUADRATIC, EXPONENTIAL, LOGARITHMIC,
+        POWER, STEP, SIGMOID
     }
 
     @Expose public String attributeId;
@@ -193,6 +194,26 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
                 double c = coefficients.length > 1 ? coefficients[1] : 0;
                 if (base <= 0 || base == 1) yield 0;
                 yield a * (Math.log(x) / Math.log(base)) + c;
+            }
+            case POWER -> {
+                double a = coefficients.length > 0 ? coefficients[0] : 0;
+                double k = coefficients.length > 1 ? coefficients[1] : 1;
+                double c = coefficients.length > 2 ? coefficients[2] : 0;
+                yield a * Math.pow(x, k) + c;
+            }
+            case STEP -> {
+                double a = coefficients.length > 0 ? coefficients[0] : 0;
+                double b = coefficients.length > 1 ? coefficients[1] : 1;
+                double c = coefficients.length > 2 ? coefficients[2] : 0;
+                if (b <= 0) yield c;
+                yield a * Math.floor(x / b) + c;
+            }
+            case SIGMOID -> {
+                double a = coefficients.length > 0 ? coefficients[0] : 1;
+                double b = coefficients.length > 1 ? coefficients[1] : 1;
+                double c = coefficients.length > 2 ? coefficients[2] : 0;
+                double d = coefficients.length > 3 ? coefficients[3] : 0;
+                yield a / (1 + Math.exp(-b * (x - c))) + d;
             }
         };
     }
