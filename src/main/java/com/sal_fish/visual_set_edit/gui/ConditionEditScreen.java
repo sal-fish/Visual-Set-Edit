@@ -42,8 +42,7 @@ public class ConditionEditScreen extends Screen {
     private double isValue = 0;
 
     private EditBox valueEdit, invDurMinEdit, invDurMaxEdit, isValueEdit;
-    private CycleButton<String> fieldButton, comparatorButton, compOpButton, isFieldButton, isComparatorButton;
-    private Button invSlotButton, invItemButton, invTagSelectButton;
+    private Button invSlotButton, invItemButton;
     private EditBox invTagEdit;
 
     private final List<Condition> tempChildren = new ArrayList<>();
@@ -128,11 +127,13 @@ public class ConditionEditScreen extends Screen {
     private void buildCommonFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         List<String> fieldOptions = getFieldOptions();
         if (!fieldOptions.isEmpty()) {
-            if (field.isEmpty()) field = fieldOptions.get(0);
+            if (field.isEmpty() || !fieldOptions.contains(field)) {
+                field = fieldOptions.get(0);
+            }
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.field"), font));
             y += rowHeight;
-            fieldButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.field." + condType + "." + s))
+            CycleButton<String> fieldButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.field." + condType + "." + s))
                     .withValues(fieldOptions)
                     .displayOnlyValue()
                     .withInitialValue(field)
@@ -150,7 +151,7 @@ public class ConditionEditScreen extends Screen {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
             y += rowHeight;
-            comparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+            CycleButton<String> comparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
                     .withValues("EQ", "GT", "LT", "GTE", "LTE")
                     .displayOnlyValue()
                     .withInitialValue(comparator)
@@ -379,11 +380,13 @@ public class ConditionEditScreen extends Screen {
     //铁魔法条件
     private void buildIronSpellFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         List<String> isFieldOpts = List.of("MANA", "MANA_PERCENT", "CASTING");
-        if (isField == null || isField.isEmpty()) isField = isFieldOpts.get(0);
+        if (isField == null || isField.isEmpty() || !isFieldOpts.contains(isField)) {
+            isField = isFieldOpts.get(0);
+        }
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.field"), font));
         y += rowHeight;
-        isFieldButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.field.iron_spell." + s))
+        CycleButton<String> isFieldButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.field.iron_spell." + s))
                 .withValues(isFieldOpts)
                 .displayOnlyValue()
                 .withInitialValue(isField)
@@ -399,7 +402,7 @@ public class ConditionEditScreen extends Screen {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
             y += rowHeight;
-            isComparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+            CycleButton<String> isComparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
                     .withValues("EQ", "GT", "LT", "GTE", "LTE")
                     .displayOnlyValue()
                     .withInitialValue(isComparator)
@@ -426,7 +429,7 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.composite.op"), font));
         y += rowHeight;
-        compOpButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.composite.op." + s))
+        CycleButton<String> compOpButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.composite.op." + s))
                 .withValues("AND", "OR", "NOT")
                 .displayOnlyValue()
                 .withInitialValue(compOp)
