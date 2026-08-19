@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -85,14 +86,30 @@ public class EffectListScreen extends Screen {
                     if (idx >= 0) phase.effects.set(idx, effect);
                     minecraft.setScreen(this);
                 }, this, entry));
-            }).pos(10, currentY).size(180, 20).build());
+            }).pos(10, currentY).size(140, 20).build());
 
             addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.delete"), btn -> {
                 phase.effects.remove(index);
                 int newMaxOffset = Math.max(0, phase.effects.size() - maxVisible);
                 if (scrollOffset > newMaxOffset) scrollOffset = newMaxOffset;
                 init();
-            }).pos(195, currentY).size(20, 20).build());
+            }).pos(153, currentY).size(20, 20).build());
+
+            addRenderableWidget(Button.builder(Component.literal("↑"), btn -> {
+                if (index > 0) {
+                    Collections.swap(phase.effects, index, index - 1);
+                    scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, phase.effects.size() - maxVisible)));
+                    init();
+                }
+            }).pos(176, currentY).size(20, 20).build());
+
+            addRenderableWidget(Button.builder(Component.literal("↓"), btn -> {
+                if (index < phase.effects.size() - 1) {
+                    Collections.swap(phase.effects, index, index + 1);
+                    scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, phase.effects.size() - maxVisible)));
+                    init();
+                }
+            }).pos(198, currentY).size(20, 20).build());
 
             currentY += ITEM_HEIGHT;
         }
