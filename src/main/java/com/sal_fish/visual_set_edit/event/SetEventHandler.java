@@ -132,7 +132,7 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_ATTACK) {
-                        cmd.executeCommands(attacker, cmd.commands, attacker);
+                        cmd.executeCommands(attacker, cmd.commands, target);
                     }
                 }
             }
@@ -140,7 +140,7 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(target)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_HURT) {
-                        cmd.executeCommands(target, cmd.commands , target);
+                        cmd.executeCommands(target, cmd.commands , attacker);
                     }
                 }
             }
