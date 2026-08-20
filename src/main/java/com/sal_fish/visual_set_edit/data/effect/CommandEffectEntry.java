@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec2;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,16 +92,20 @@ public class CommandEffectEntry extends EffectEntry {
         }
     }
 
-    public void executeCommands(LivingEntity entity, List<String> cmds) {
+    public void executeCommands(LivingEntity entity, List<String> cmds, @Nullable LivingEntity target) {
         if (cmds == null || cmds.isEmpty()) return;
-        // 概率判定
-        if (probability < 1.0) {
-            if (entity.level().random.nextDouble() >= probability) {
-                return;
-            }
+        if (probability < 1.0 && entity.level().random.nextDouble() >= probability) {
+            return;
         }
         if (!(entity.level() instanceof ServerLevel level)) return;
+
         for (String cmd : cmds) {
+            String finalCmd = cmd;
+            if (target != null) {
+                finalCmd = finalCmd.replace("%target%", target.getStringUUID());
+            } else if (finalCmd.contains("%target%")) {
+                continue;
+            }
             CommandSourceStack source = new CommandSourceStack(
                     entity,
                     entity.position(),
@@ -113,8 +118,12 @@ public class CommandEffectEntry extends EffectEntry {
                     entity
             );
             source = source.withSuppressedOutput();
-            level.getServer().getCommands().performPrefixedCommand(source, cmd);
+            level.getServer().getCommands().performPrefixedCommand(source, finalCmd);
         }
+    }
+
+    public void executeCommands(LivingEntity entity, List<String> cmds) {
+        executeCommands(entity, cmds, null);
     }
 
     @Override

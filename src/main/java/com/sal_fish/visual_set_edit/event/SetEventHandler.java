@@ -87,22 +87,25 @@ public class SetEventHandler {
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
         LivingEntity dead = event.getEntity();
+        LivingEntity killer = null;
 
-        // 死亡者自身触发：ON_DEATH
+        if (event.getSource().getEntity() instanceof LivingEntity source) {
+            killer = source;
+        }
+
         for (var active : ActiveSetTracker.getActivePhases(dead)) {
             for (EffectEntry entry : active.phase().effects) {
                 if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_DEATH) {
-                    cmd.executeCommands(dead, cmd.commands);
+                    cmd.executeCommands(dead, cmd.commands, killer);
                 }
             }
         }
 
-        if (event.getSource().getEntity() instanceof LivingEntity killer) {
-            // 击杀者触发：ON_KILL
+        if (killer != null) {
             for (var active : ActiveSetTracker.getActivePhases(killer)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_KILL) {
-                        cmd.executeCommands(killer, cmd.commands);
+                        cmd.executeCommands(killer, cmd.commands, dead);
                     }
                 }
             }
@@ -129,7 +132,7 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_ATTACK) {
-                        cmd.executeCommands(attacker, cmd.commands);
+                        cmd.executeCommands(attacker, cmd.commands, target);
                     }
                 }
             }
@@ -137,7 +140,7 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(target)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_HURT) {
-                        cmd.executeCommands(target, cmd.commands);
+                        cmd.executeCommands(target, cmd.commands , target);
                     }
                 }
             }
