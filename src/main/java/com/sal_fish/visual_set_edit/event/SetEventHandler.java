@@ -132,7 +132,7 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_ATTACK) {
-                        cmd.executeCommands(attacker, cmd.commands, target);
+                        cmd.executeCommands(attacker, cmd.commands, attacker);
                     }
                 }
             }
