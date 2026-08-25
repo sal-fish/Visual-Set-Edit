@@ -2,6 +2,7 @@ package com.sal_fish.visual_set_edit.client;
 
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager.RegisteredEntry;
+import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -31,13 +32,29 @@ public class CuriosTooltipHandler {
         List<RegisteredEntry> matchingEntries = CuriosItemMappingManager.getMatchingEntries(itemId, stack.getTag());
         if (matchingEntries.isEmpty()) return;
 
-        // 收集所有匹配条目的槽位（去重，保持顺序）
-        List<String> slotIds = new ArrayList<>();
+        // 检查是否存在“任意饰品栏”特殊槽位
+        boolean anySlot = false;
         for (RegisteredEntry entry : matchingEntries) {
             for (String slot : entry.slots) {
-                String cleaned = slot.startsWith("curios:") ? slot.substring(7) : slot;
-                if (!slotIds.contains(cleaned)) {
-                    slotIds.add(cleaned);
+                if (IModIntegration.ANY_CURIOS_SLOT.equals(slot)) {
+                    anySlot = true;
+                    break;
+                }
+            }
+            if (anySlot) break;
+        }
+
+        List<String> slotIds = new ArrayList<>();
+        if (anySlot) {
+            slotIds.add(IModIntegration.ANY_CURIOS_SLOT);
+        } else {
+            // 收集所有匹配条目的具体槽位（去重，保持顺序）
+            for (RegisteredEntry entry : matchingEntries) {
+                for (String slot : entry.slots) {
+                    String cleaned = slot.startsWith("curios:") ? slot.substring(7) : slot;
+                    if (!slotIds.contains(cleaned)) {
+                        slotIds.add(cleaned);
+                    }
                 }
             }
         }
@@ -49,7 +66,12 @@ public class CuriosTooltipHandler {
 
         for (int i = 0; i < slotIds.size(); i++) {
             String id = slotIds.get(i);
-            MutableComponent type = Component.translatable("curios.identifier." + id);
+            MutableComponent type;
+            if (IModIntegration.ANY_CURIOS_SLOT.equals(id)) {
+                type = Component.translatable("visual_set_edit.slot.any");
+            } else {
+                type = Component.translatable("curios.identifier." + id);
+            }
             if (i < slotIds.size() - 1) {
                 type = type.append(", ");
             }

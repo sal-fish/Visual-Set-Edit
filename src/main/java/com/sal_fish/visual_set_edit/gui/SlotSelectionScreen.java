@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -75,6 +76,7 @@ public class SlotSelectionScreen extends Screen {
             for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
                 allSlots.add("curios:" + slotId);
             }
+            allSlots.add(IModIntegration.ANY_CURIOS_SLOT);
         }
 
         allSlots.sort(Comparator.naturalOrder());
@@ -82,7 +84,9 @@ public class SlotSelectionScreen extends Screen {
         for (String slot : allSlots) {
             if (!filter.isEmpty() && !slot.toLowerCase().contains(lowerFilter)) continue;
             Component slotName;
-            if (slot.startsWith("curios:")) {
+            if (slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+                slotName = Component.translatable("visual_set_edit.slot.any");
+            } else if (slot.startsWith("curios:")) {
                 slotName = Component.translatable("curios.identifier." + slot.substring(7));
             } else {
                 slotName = Component.translatable("visual_set_edit.slot." + slot.toLowerCase());

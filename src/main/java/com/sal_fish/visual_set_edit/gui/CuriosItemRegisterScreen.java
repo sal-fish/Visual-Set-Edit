@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.gui;
 
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
+import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -178,6 +179,7 @@ public class CuriosItemRegisterScreen extends Screen {
                 String fullSlotId = "curios:" + slotId;
                 slotList.addEntry(new SlotEntry(fullSlotId));
             }
+            slotList.addEntry(new SlotEntry(IModIntegration.ANY_CURIOS_SLOT));
             y += listHeight + 5;
         }
 
@@ -350,7 +352,12 @@ public class CuriosItemRegisterScreen extends Screen {
             String slotId = fullSlotId.startsWith("curios:") ? fullSlotId.substring(7) : fullSlotId;
             boolean checked = selectedSlots.contains(fullSlotId);
             String prefix = checked ? "[✔] " : "[ ] ";
-            String text = prefix + Component.translatable("curios.identifier." + slotId).getString();
+            String text;
+            if (fullSlotId.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+                text = prefix + Component.translatable("visual_set_edit.slot.any").getString();
+            } else {
+                text = prefix + Component.translatable("curios.identifier." + slotId).getString();
+            }
             graphics.drawString(font, text, left, top + (rowHeight - 8) / 2, 0xFFFFFF);
         }
 

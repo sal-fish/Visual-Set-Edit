@@ -23,6 +23,8 @@ public class TooltipEditScreen extends Screen {
     private static final int LINE_SPACING = 2;
     private static final int EDIT_WIDTH = 200;
     private static final int MARGIN = 20;
+    private EditBox hexColorInput;
+    private Button insertHexButton;
 
     public TooltipEditScreen(Preset preset, Screen parent) {
         super(Component.translatable("visual_set_edit.gui.custom_text.edit.title"));
@@ -102,6 +104,44 @@ public class TooltipEditScreen extends Screen {
                 btnY += LINE_HEIGHT + spacing;
             }
         }
+
+        // Hex 颜色输入与插入
+        btnY += LINE_HEIGHT + 4; // 换行
+        x = MARGIN;
+
+        addRenderableWidget(new StringWidget(x, btnY, 100, LINE_HEIGHT,
+                Component.translatable("visual_set_edit.gui.custom_text.hex_color"), font));
+        hexColorInput = new EditBox(font, x + 105, btnY, 60, LINE_HEIGHT,
+                Component.translatable("visual_set_edit.gui.custom_text.hex_color"));
+        hexColorInput.setMaxLength(6); // 只输入 RRGGBB
+        hexColorInput.setValue("FF5500");
+        addRenderableWidget(hexColorInput);
+
+        insertHexButton = Button.builder(Component.translatable("visual_set_edit.gui.custom_text.insert"),
+                btn -> {
+                    OptionalInt focusIndex = getFocusLineIndex();
+                    if (focusIndex.isPresent()) {
+                        EditBox box = lineEdits.get(focusIndex.getAsInt());
+                        String txt = box.getValue();
+                        int cursor = box.getCursorPosition();
+                        String hex = hexColorInput.getValue();
+                        // 转换为 §x§R§R§G§G§B§B 格式
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("§x");
+                        for (char c : hex.toCharArray()) {
+                            sb.append("§").append(c);
+                        }
+                        String colorCode = sb.toString();
+                        String newTxt = txt.substring(0, cursor) + colorCode + txt.substring(cursor);
+                        box.setValue(newTxt);
+                        box.moveCursorTo(cursor + colorCode.length());
+                        box.setFocused(true);
+                    }
+                }).pos(x + 170, btnY).size(50, LINE_HEIGHT).build();
+        addRenderableWidget(insertHexButton);
+
+        btnY += LINE_HEIGHT + 4; // 换行
+        x = MARGIN;
 
         // 格式按钮
         btnY += LINE_HEIGHT + 4;

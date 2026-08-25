@@ -30,10 +30,7 @@ public class CuriosIntegration implements IModIntegration {
 
     @Override
     public void onInitialize() {
-        // 1. 装备验证事件
         MinecraftForge.EVENT_BUS.addListener(this::onCurioEquip);
-
-        // 2. 为物品附加能力（用于快捷放入）
         MinecraftForge.EVENT_BUS.addGenericListener(ItemStack.class, this::onAttachItemCapability);
     }
 
@@ -44,13 +41,23 @@ public class CuriosIntegration implements IModIntegration {
         if (key == null) return;
         String itemId = key.toString();
 
-        // 获取与物品 NBT 匹配的所有注册条目
         List<RegisteredEntry> matching = CuriosItemMappingManager.getMatchingEntries(itemId, stack.getTag());
         if (matching.isEmpty()) return;
 
-        // 使用第一个匹配条目的配置（可根据需要调整合并策略）
+        // 检查是否有任意槽位条目
+        boolean anySlot = false;
+        for (RegisteredEntry entry : matching) {
+            for (String slot : entry.slots) {
+                if (IModIntegration.ANY_CURIOS_SLOT.equals(slot)) {
+                    anySlot = true;
+                    break;
+                }
+            }
+            if (anySlot) break;
+        }
+
         RegisteredEntry first = matching.get(0);
-        ICurioItem curioItem = new VseCurioItem(first.canQuickEquip, first.canRemove);
+        ICurioItem curioItem = new VseCurioItem(first.canQuickEquip, first.canRemove, anySlot);
         event.addCapability(new ResourceLocation("visual_set_edit", "curio"),
                 CuriosApi.createCurioProvider(new ItemizedCurioCapability(curioItem, stack)));
     }
@@ -62,13 +69,23 @@ public class CuriosIntegration implements IModIntegration {
         if (key == null) return;
         String itemId = key.toString();
 
-        // 获取所有匹配 NBT 的注册条目
         List<RegisteredEntry> matching = CuriosItemMappingManager.getMatchingEntries(itemId, stack.getTag());
         if (matching.isEmpty()) return;
 
         String targetSlot = event.getSlotContext().identifier();
 
-        // 检查目标槽位是否在任何一个匹配条目的槽位列表中
+        // 检查任意槽位条目
+        for (RegisteredEntry entry : matching) {
+            for (String allowed : entry.slots) {
+                if (IModIntegration.ANY_CURIOS_SLOT.equals(allowed)) {
+                    event.setResult(Event.Result.ALLOW);
+                    SetEventHandler.forceReevaluate(event.getEntity());
+                    return;
+                }
+            }
+        }
+
+        // 检查具体槽位
         for (RegisteredEntry entry : matching) {
             for (String allowed : entry.slots) {
                 String normalized = allowed.startsWith("curios:") ? allowed.substring(7) : allowed;
@@ -135,6 +152,35 @@ public class CuriosIntegration implements IModIntegration {
             }
         }
         return Collections.emptyList();
+    }
+
+    @Override
+    public boolean isAnyCuriosSlot(String slotId) {
+        return IModIntegration.ANY_CURIOS_SLOT.equals(slotId);
+    }
+
+    @Override
+    public Map<String, List<ItemStack>> getAllEquippedStacks(LivingEntity entity) {
+        Map<String, List<ItemStack>> result = new HashMap<>();
+        var curiosHandler = CuriosApi.getCuriosHelper().getCuriosHandler(entity).orElse(null);
+        if (curiosHandler == null) return result;
+
+        for (String slotId : getExtraSlots()) {
+            var stacksHandler = curiosHandler.getStacksHandler(slotId).orElse(null);
+            if (stacksHandler == null) continue;
+            IDynamicStackHandler stacks = stacksHandler.getStacks();
+            List<ItemStack> nonEmpty = new ArrayList<>();
+            for (int i = 0; i < stacks.getSlots(); i++) {
+                ItemStack stack = stacks.getStackInSlot(i);
+                if (!stack.isEmpty()) {
+                    nonEmpty.add(stack);
+                }
+            }
+            if (!nonEmpty.isEmpty()) {
+                result.put(slotId, nonEmpty);
+            }
+        }
+        return result;
     }
 
     @Override public boolean canItemGoInSlot(String slotId, ItemStack stack) {

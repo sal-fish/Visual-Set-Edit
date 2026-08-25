@@ -3,8 +3,11 @@ package com.sal_fish.visual_set_edit.integration;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import java.util.List;
+import java.util.Map;
 
 public interface IModIntegration {
+    String ANY_CURIOS_SLOT = "curios:any";
+
     boolean isLoaded();
     void onInitialize();
 
@@ -19,4 +22,7 @@ public interface IModIntegration {
     ItemStack getSlotStack(LivingEntity entity, String slotId);
     boolean canItemGoInSlot(String slotId, ItemStack stack);
     List<ItemStack> getSlotStacks(LivingEntity entity, String slotId);
+
+    boolean isAnyCuriosSlot(String slotId);
+    Map<String, List<ItemStack>> getAllEquippedStacks(LivingEntity entity);
 }

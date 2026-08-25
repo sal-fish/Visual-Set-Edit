@@ -1,9 +1,11 @@
 package com.sal_fish.visual_set_edit.data.effect;
 
 import com.google.gson.annotations.Expose;
+import com.sal_fish.visual_set_edit.data.TargetFilter;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec2;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +26,12 @@ public class CommandEffectEntry extends EffectEntry {
         ON_ATTACK,
         ON_HURT,
         ON_KILL,
-        ON_DEATH
+        ON_DEATH,
+        ON_INTERACT_BLOCK,   // 右键点击方块
+        ON_INTERACT_ENTITY,  // 右键点击实体
+        ON_PLACE_BLOCK,      // 放置方块
+        ON_BREAK_BLOCK,      // 破坏方块
+        ON_WAKE_UP           // 醒来
     }
 
     @Expose public List<String> activateCommands;
@@ -35,6 +42,8 @@ public class CommandEffectEntry extends EffectEntry {
     @Expose public Trigger trigger = Trigger.ACTIVATE;
     @Expose public List<String> commands = new ArrayList<>();
     @Expose public double probability = 1.0;
+    @Expose public TargetFilter targetFilter = new TargetFilter();
+    @Expose public int cooldownSeconds = 0; // 0 或负数表示无冷却
 
     public CommandEffectEntry() {
         this.type = "command";
@@ -64,6 +73,10 @@ public class CommandEffectEntry extends EffectEntry {
         }
         if (probability < 0) probability = 0;
         if (probability > 1) probability = 1;
+        if (targetFilter == null) {
+            targetFilter = new TargetFilter();
+        }
+        if (cooldownSeconds < 0) cooldownSeconds = 0;
     }
 
     @Override
@@ -92,12 +105,21 @@ public class CommandEffectEntry extends EffectEntry {
         }
     }
 
-    public void executeCommands(LivingEntity entity, List<String> cmds, @Nullable LivingEntity target) {
+    public void executeCommands(LivingEntity entity, List<String> cmds, @Nullable Entity target) {
         if (cmds == null || cmds.isEmpty()) return;
         if (probability < 1.0 && entity.level().random.nextDouble() >= probability) {
             return;
         }
         if (!(entity.level() instanceof ServerLevel level)) return;
+        // 冷却检查
+        if (cooldownSeconds > 0) {
+            long lastExec = entity.getPersistentData().getLong("vse_cmd_cd_" + uniqueId);
+            long currentTick = entity.level().getGameTime();
+            long cooldownTicks = cooldownSeconds * 20L;
+            if (lastExec > 0 && (currentTick - lastExec) < cooldownTicks) {
+                return;
+            }
+        }
 
         for (String cmd : cmds) {
             String finalCmd = cmd;
@@ -119,6 +141,11 @@ public class CommandEffectEntry extends EffectEntry {
             );
             source = source.withSuppressedOutput();
             level.getServer().getCommands().performPrefixedCommand(source, finalCmd);
+        }
+
+        // 执行完成后更新冷却时间戳
+        if (cooldownSeconds > 0) {
+            entity.getPersistentData().putLong("vse_cmd_cd_" + uniqueId, entity.level().getGameTime());
         }
     }
 

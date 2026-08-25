@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.data.TargetFilter;
 import com.sal_fish.visual_set_edit.data.effect.*;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public class EffectEditScreen extends Screen {
@@ -52,6 +54,9 @@ public class EffectEditScreen extends Screen {
     private EditBox commandIntervalEdit;
     private CommandEffectEntry.Trigger commandTrigger = CommandEffectEntry.Trigger.ACTIVATE;
     private double commandProbability = 1.0;
+    private TargetFilter commandTargetFilter = new TargetFilter();
+    private int commandCooldownSeconds = 0;
+    private Button targetFilterButton;
 
     // Iron Spell
     private String spellId = "";
@@ -95,6 +100,8 @@ public class EffectEditScreen extends Screen {
     private String customDisplayText = "";
     private String customColor = "white";
     private EditBox customDisplayTextEdit;
+    private EditBox customColorHexEdit;
+    private boolean showPointer = true;
 
     //Tag
     private String tagName = "";
@@ -122,6 +129,7 @@ public class EffectEditScreen extends Screen {
     private void loadFromExisting(EffectEntry existing) {
         customDisplayText = existing.customDisplayText != null ? existing.customDisplayText : "";
         customColor = existing.customColor != null ? existing.customColor : "white";
+        this.showPointer = existing.showPointer;
         if (existing instanceof PotionEffectEntry pot) {
             effectType = "potion"; potionTarget = pot.target != null ? pot.target : "SELF";
             selectedMobEffect = ResourceLocation.tryParse(pot.mobEffectId); amplifier = pot.amplifier;
@@ -142,6 +150,8 @@ public class EffectEditScreen extends Screen {
             commandMode = cmd.mode != null ? cmd.mode : CommandEffectEntry.Mode.IMPULSE;
             commandRepeatInterval = cmd.repeatIntervalSeconds > 0 ? cmd.repeatIntervalSeconds : 1;
             commandProbability = cmd.probability;
+            this.commandTargetFilter = Objects.requireNonNullElseGet(cmd.targetFilter, TargetFilter::new);
+            this.commandCooldownSeconds = cmd.cooldownSeconds;
         } else if (existing instanceof IronSpellEffectEntry iron) {
             effectType = "iron_spell"; spellId = iron.spellId != null ? iron.spellId : "";
             spellLevel = iron.spellLevel > 0 ? iron.spellLevel : 1;
@@ -231,12 +241,54 @@ public class EffectEditScreen extends Screen {
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.custom_color"), font)); y += rowHeight;
+        String initialColor = COLORS.contains(customColor) ? customColor : COLORS.get(0);
         CycleButton<String> customColorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.color." + s))
                 .withValues(COLORS)
-                .displayOnlyValue().withInitialValue(customColor)
+                .displayOnlyValue().withInitialValue(initialColor)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                        Component.translatable("visual_set_edit.gui.effect.custom_color"), (btn, val) -> customColor = val);
+                        Component.translatable("visual_set_edit.gui.effect.custom_color"), (btn, val) -> {
+                            customColor = val;
+                            if (customColorHexEdit != null) {
+                                customColorHexEdit.setValue("");
+                            }
+                        });
         addRenderableWidget(customColorButton); y += rowHeight + spacing;
+        // Hex 颜色输入框
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.custom_color_hex"), font));
+        y += rowHeight;
+
+        customColorHexEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.custom_color_hex"));
+        customColorHexEdit.setMaxLength(5201314);
+        if (!COLORS.contains(customColor)) {
+            customColorHexEdit.setValue(customColor);
+        } else {
+            customColorHexEdit.setValue("");
+        }
+        customColorHexEdit.setResponder(s -> {
+            if (!s.isEmpty()) {
+                customColor = s;
+            }
+        });
+        addRenderableWidget(customColorHexEdit);
+        y += rowHeight + spacing;
+
+        // 指针显示开关
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.show_pointer"), font));
+        y += rowHeight;
+        CycleButton<Boolean> pointerButton = CycleButton.<Boolean>builder(b ->
+                        b ? Component.translatable("visual_set_edit.gui.on") : Component.translatable("visual_set_edit.gui.off"))
+                .withValues(true, false)
+                .displayOnlyValue()
+                .withInitialValue(showPointer)
+                .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.effect.show_pointer"),
+                        (btn, val) -> showPointer = val);
+        addRenderableWidget(pointerButton);
+        y += rowHeight + spacing;
+
         return y;
     }
 
@@ -431,6 +483,44 @@ public class EffectEditScreen extends Screen {
         } else {
             commandIntervalEdit = null;
         }
+
+        if (commandTrigger == CommandEffectEntry.Trigger.ON_INTERACT_BLOCK ||
+                commandTrigger == CommandEffectEntry.Trigger.ON_INTERACT_ENTITY ||
+                commandTrigger == CommandEffectEntry.Trigger.ON_PLACE_BLOCK ||
+                commandTrigger == CommandEffectEntry.Trigger.ON_BREAK_BLOCK) {
+
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.command.target_filter"), font));
+            y += rowHeight;
+
+            targetFilterButton = Button.builder(
+                    getTargetFilterButtonText(),
+                    btn -> {
+                        assert minecraft != null;
+                        minecraft.setScreen(new TargetFilterEditScreen(this, commandTargetFilter, newFilter -> {
+                            commandTargetFilter = newFilter;
+                            targetFilterButton.setMessage(getTargetFilterButtonText());
+                        }));
+                    }
+            ).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
+            addRenderableWidget(targetFilterButton);
+            y += rowHeight + spacing;
+        }
+
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.cooldown"), font));
+        y += rowHeight;
+        EditBox commandCooldownEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.command.cooldown"));
+        commandCooldownEdit.setMaxLength(10);
+        commandCooldownEdit.setValue(String.valueOf(commandCooldownSeconds));
+        commandCooldownEdit.setResponder(s -> {
+            try {
+                commandCooldownSeconds = Integer.parseInt(s);
+            } catch (Exception ignored) {}
+        });
+        addRenderableWidget(commandCooldownEdit);
+        y += rowHeight + spacing;
 
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -841,6 +931,18 @@ public class EffectEditScreen extends Screen {
         return Component.literal(dynamicSourceAttributeId);
     }
 
+    private Component getTargetFilterButtonText() {
+        if (commandTargetFilter == null || commandTargetFilter.isEmpty()) {
+            return Component.translatable("visual_set_edit.gui.effect.command.target_filter.none");
+        }
+        StringBuilder sb = new StringBuilder();
+        if (commandTargetFilter.blockId != null) sb.append("Block: ").append(commandTargetFilter.blockId);
+        if (commandTargetFilter.blockTag != null) sb.append("BlockTag: ").append(commandTargetFilter.blockTag);
+        if (commandTargetFilter.entityTypeId != null) sb.append("Entity: ").append(commandTargetFilter.entityTypeId);
+        if (commandTargetFilter.entityTypeTag != null) sb.append("EntityTag: ").append(commandTargetFilter.entityTypeTag);
+        return Component.literal(sb.toString());
+    }
+
     private EffectEntry createEffect() {
         EffectEntry e = null;
         switch (effectType) {
@@ -880,6 +982,8 @@ public class EffectEditScreen extends Screen {
                 }
                 cmd.activateCommands = cmd.commands;
                 cmd.probability = commandProbability;
+                cmd.targetFilter = this.commandTargetFilter;
+                cmd.cooldownSeconds = this.commandCooldownSeconds;
                 e = cmd;
             }
             case "iron_spell" -> {
@@ -930,6 +1034,7 @@ public class EffectEditScreen extends Screen {
         if (e != null) {
             e.customDisplayText = customDisplayTextEdit != null ? customDisplayTextEdit.getValue() : customDisplayText;
             e.customColor = customColor;
+            e.showPointer = showPointer;
         }
         return e;
     }

@@ -120,9 +120,10 @@ public class PresetManager {
                 Path file = PRESETS_DIR.resolve(preset.id + ".json");
                 Files.writeString(file, json, StandardCharsets.UTF_8);
             }
-
+            /*
             String fullJson = GSON.toJson(newPresets);
             Files.writeString(OLD_PRESETS_FILE, fullJson, StandardCharsets.UTF_8);
+            */
 
             presets = new ArrayList<>(newPresets);
             for (Preset p : presets) p.initAfterLoad();

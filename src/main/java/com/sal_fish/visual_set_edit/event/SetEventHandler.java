@@ -14,14 +14,21 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.living.*;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.PlayerWakeUpEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -242,6 +249,46 @@ public class SetEventHandler {
     @SubscribeEvent
     public void onMobEffectExpired(MobEffectEvent.Expired event) {
         SNAPSHOT_HASH_CACHE.remove(event.getEntity().getUUID());
+    }
+
+    // ========== 新触发器事件 ==========
+
+    @SubscribeEvent
+    public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getSide() != LogicalSide.SERVER) return;
+        Player player = event.getEntity();
+        BlockState targetState = event.getLevel().getBlockState(event.getPos());
+        handleInstantTrigger(player, CommandEffectEntry.Trigger.ON_INTERACT_BLOCK, targetState, null);
+    }
+
+    @SubscribeEvent
+    public void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getSide() != LogicalSide.SERVER) return;
+        Player player = event.getEntity();
+        Entity target = event.getTarget();
+        handleInstantTrigger(player, CommandEffectEntry.Trigger.ON_INTERACT_ENTITY, null, target);
+    }
+
+    @SubscribeEvent
+    public void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        if (!(event.getEntity() instanceof LivingEntity living)) return;
+        BlockState placedState = event.getPlacedBlock();
+        handleInstantTrigger(living, CommandEffectEntry.Trigger.ON_PLACE_BLOCK, placedState, null);
+    }
+
+    @SubscribeEvent
+    public void onBlockBroken(BlockEvent.BreakEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        Player player = event.getPlayer();
+        BlockState brokenState = event.getState();
+        handleInstantTrigger(player, CommandEffectEntry.Trigger.ON_BREAK_BLOCK, brokenState, null);
+    }
+
+    @SubscribeEvent
+    public void onPlayerWakeUp(PlayerWakeUpEvent event) {
+        if (event.getEntity().level().isClientSide()) return;
+        handleInstantTrigger(event.getEntity(), CommandEffectEntry.Trigger.ON_WAKE_UP, null, null);
     }
 
     //核心评估逻辑
@@ -610,27 +657,60 @@ public class SetEventHandler {
         equipment.put("MAINHAND", entity.getItemBySlot(EquipmentSlot.MAINHAND));
         equipment.put("OFFHAND", entity.getItemBySlot(EquipmentSlot.OFFHAND));
 
+        Map<String, List<ItemStack>> curiosStacks = null;
+        if (IntegrationManager.isCuriosLoaded()) {
+            boolean hasCuriosCond = sortedConditions.stream().anyMatch(cond ->
+                    cond.slot.startsWith("curios:") || cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT));
+            if (hasCuriosCond) {
+                curiosStacks = IntegrationManager.getCurios().getAllEquippedStacks(entity);
+            }
+        }
+
         Map<String, Set<Integer>> usedIndices = new HashMap<>();
 
         for (SlotCondition cond : sortedConditions) {
             if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
                 String realSlotId = cond.slot.substring(7);
-                List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(entity, realSlotId);
+                List<ItemStack> stacks;
 
-                boolean found = false;
-                for (int i = 0; i < stacks.size(); i++) {
-                    ItemStack stack = stacks.get(i);
-                    boolean matches = cond.matches(stack);
-                    boolean used = usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i);
-
-                    if (used) continue;
-                    if (matches) {
-                        found = true;
-                        usedIndices.computeIfAbsent(realSlotId, k -> new HashSet<>()).add(i);
-                        break;
+                if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+                    boolean found = false;
+                    if (curiosStacks != null) {
+                        for (Map.Entry<String, List<ItemStack>> entry : curiosStacks.entrySet()) {
+                            String slotId = entry.getKey();
+                            List<ItemStack> slotStacks = entry.getValue();
+                            for (int i = 0; i < slotStacks.size(); i++) {
+                                ItemStack stack = slotStacks.get(i);
+                                if (cond.matches(stack)) {
+                                    boolean used = usedIndices.containsKey(slotId) && usedIndices.get(slotId).contains(i);
+                                    if (!used) {
+                                        usedIndices.computeIfAbsent(slotId, k -> new HashSet<>()).add(i);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found) break;
+                        }
                     }
+                    if (found) matched++;
+                } else {
+                    stacks = curiosStacks != null ? curiosStacks.getOrDefault(realSlotId, Collections.emptyList()) : Collections.emptyList();
+                    boolean found = false;
+                    for (int i = 0; i < stacks.size(); i++) {
+                        ItemStack stack = stacks.get(i);
+                        boolean matches = cond.matches(stack);
+                        boolean used = usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i);
+
+                        if (used) continue;
+                        if (matches) {
+                            found = true;
+                            usedIndices.computeIfAbsent(realSlotId, k -> new HashSet<>()).add(i);
+                            break;
+                        }
+                    }
+                    if (found) matched++;
                 }
-                if (found) matched++;
             } else {
                 ItemStack stack = equipment.get(cond.slot);
                 if (cond.matches(stack)) matched++;
@@ -642,5 +722,27 @@ public class SetEventHandler {
             if (!cond.test(entity)) return false;
         }
         return true;
+    }
+
+    private void handleInstantTrigger(LivingEntity entity, CommandEffectEntry.Trigger trigger,
+                                      BlockState blockState, Entity targetEntity) {
+        if (entity.level().isClientSide) return;
+        List<ActiveSetTracker.ActivePhase> activePhases = ActiveSetTracker.getActivePhases(entity);
+        if (activePhases.isEmpty()) return;
+
+        for (ActiveSetTracker.ActivePhase active : activePhases) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (!(entry instanceof CommandEffectEntry cmd)) continue;
+                if (cmd.trigger != trigger) continue;
+                if (blockState != null) {
+                    if (!cmd.targetFilter.matches(blockState)) continue;
+                }
+                if (targetEntity != null) {
+                    if (!cmd.targetFilter.matches(targetEntity)) continue;
+                }
+
+                cmd.executeCommands(entity, cmd.commands, targetEntity);
+            }
+        }
     }
 }

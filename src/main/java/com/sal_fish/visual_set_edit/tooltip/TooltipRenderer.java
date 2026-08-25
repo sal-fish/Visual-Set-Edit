@@ -102,9 +102,10 @@ public class TooltipRenderer {
 
                     // 效果列表
                     for (EffectEntry effect : phase.effects) {
-                        ChatFormatting effectColor = effect.getFinalColor();
-                        event.getToolTip().add(Component.literal("   ▶ " + effect.getFinalDisplayText())
-                                .withStyle(effectColor));
+                        TextColor effectColor = effect.getFinalColor();
+                        String pointer = effect.showPointer ? "   ▶ " : "   ";
+                        event.getToolTip().add(Component.literal(pointer + effect.getFinalDisplayText())
+                                .withStyle(Style.EMPTY.withColor(effectColor)));
                     }
 
                     // 附加条件（Ctrl 时显示）
@@ -137,25 +138,55 @@ public class TooltipRenderer {
                     result.append(Component.literal(currentText.toString()).withStyle(currentStyle));
                     currentText.setLength(0);
                 }
+
                 char code = text.charAt(i + 1);
-                ChatFormatting format = ChatFormatting.getByCode(code);
-                if (format != null) {
-                    switch (format) {
-                        case RESET -> currentStyle = Style.EMPTY;
-                        case BOLD -> currentStyle = currentStyle.withBold(true);
-                        case ITALIC -> currentStyle = currentStyle.withItalic(true);
-                        case UNDERLINE -> currentStyle = currentStyle.withUnderlined(true);
-                        case STRIKETHROUGH -> currentStyle = currentStyle.withStrikethrough(true);
-                        case OBFUSCATED -> currentStyle = currentStyle.withObfuscated(true);
-                        default -> {
-                            TextColor textColor = TextColor.fromLegacyFormat(format);
-                            currentStyle = currentStyle.withColor(textColor);
+                if (code == 'x' || code == 'X') {
+                    // 解析 §x§R§R§G§G§B§B 格式
+                    if (i + 13 < text.length()) { // 需要 12 个字符（6 对 §+hex）
+                        StringBuilder hexBuilder = new StringBuilder("#");
+                        boolean valid = true;
+                        for (int j = 0; j < 6; j++) {
+                            char section = text.charAt(i + 2 + j * 2); // 应为 §
+                            char hexChar = text.charAt(i + 3 + j * 2); // 十六进制字符
+                            if (section != '§' || !isHexDigit(hexChar)) {
+                                valid = false;
+                                break;
+                            }
+                            hexBuilder.append(hexChar);
+                        }
+                        if (valid) {
+                            TextColor hexColor = TextColor.parseColor(hexBuilder.toString());
+                            if (hexColor != null) {
+                                currentStyle = currentStyle.withColor(hexColor);
+                                i += 13; // 跳过整个格式序列（§x + 6*2 字符）
+                                continue;
+                            }
                         }
                     }
-                } else if (code == 'r') {
-                    currentStyle = Style.EMPTY;
+                    // 如果格式无效，则当作普通字符处理
+                    currentText.append(c);
+                } else {
+                    ChatFormatting format = ChatFormatting.getByCode(code);
+                    if (format != null) {
+                        switch (format) {
+                            case RESET -> currentStyle = Style.EMPTY;
+                            case BOLD -> currentStyle = currentStyle.withBold(true);
+                            case ITALIC -> currentStyle = currentStyle.withItalic(true);
+                            case UNDERLINE -> currentStyle = currentStyle.withUnderlined(true);
+                            case STRIKETHROUGH -> currentStyle = currentStyle.withStrikethrough(true);
+                            case OBFUSCATED -> currentStyle = currentStyle.withObfuscated(true);
+                            default -> {
+                                TextColor textColor = TextColor.fromLegacyFormat(format);
+                                currentStyle = currentStyle.withColor(textColor);
+                            }
+                        }
+                    } else if (code == 'r') {
+                        currentStyle = Style.EMPTY;
+                    } else {
+                        currentText.append(c);
+                    }
                 }
-                i++;
+                i++; // 跳过当前格式字符
             } else {
                 currentText.append(c);
             }
@@ -164,6 +195,10 @@ public class TooltipRenderer {
             result.append(Component.literal(currentText.toString()).withStyle(currentStyle));
         }
         return result;
+    }
+
+    private static boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     private String getConditionDescription(SlotCondition cond) {

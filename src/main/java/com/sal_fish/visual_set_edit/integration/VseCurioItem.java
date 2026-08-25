@@ -15,19 +15,33 @@ public class VseCurioItem implements ICurioItem {
 
     private final boolean canQuickEquip;
     private final boolean canRemove;
+    private final boolean anySlot;
 
     public VseCurioItem() {
-        this(true, true);
+        this(true, true, false);
     }
 
     public VseCurioItem(boolean canQuickEquip, boolean canRemove) {
+        this(canQuickEquip, canRemove, false);
+    }
+
+    public VseCurioItem(boolean canQuickEquip, boolean canRemove, boolean anySlot) {
         this.canQuickEquip = canQuickEquip;
         this.canRemove = canRemove;
+        this.anySlot = anySlot;
     }
 
     @Override
     public boolean canEquipFromUse(SlotContext slotContext, ItemStack stack) {
         return canQuickEquip;
+    }
+
+    @Override
+    public boolean canEquip(SlotContext slotContext, ItemStack stack) {
+        if (anySlot) {
+            return true;
+        }
+        return true;
     }
 
     @Override

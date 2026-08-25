@@ -12,9 +12,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class IronSpellsIntegration implements IModIntegration {
 
@@ -60,7 +62,6 @@ public class IronSpellsIntegration implements IModIntegration {
                         sp.sendSystemMessage(Component.translatable("visual_set_edit.integration.spell_not_found", spellId));
                         return;
                     }
-                    // 使用效果中配置的等级
                     int level = Math.max(1, spellEffect.spellLevel);
                     spell.attemptInitiateCast(ItemStack.EMPTY, level, sp.level(), sp, CastSource.SPELLBOOK, true, "mainhand");
                     return;
@@ -69,9 +70,19 @@ public class IronSpellsIntegration implements IModIntegration {
         }
     }
 
-    // Curios 方法
+    // Curios 方法（IronSpells 不提供 Curios 功能，全部返回空/假）
     @Override public List<String> getExtraSlots() { return new ArrayList<>(); }
     @Override public ItemStack getSlotStack(LivingEntity entity, String slotId) { return ItemStack.EMPTY; }
     @Override public List<ItemStack> getSlotStacks(LivingEntity entity, String slotId) { return Collections.emptyList(); }
     @Override public boolean canItemGoInSlot(String slotId, ItemStack stack) { return false; }
+
+    @Override
+    public boolean isAnyCuriosSlot(String slotId) {
+        return false;
+    }
+
+    @Override
+    public Map<String, List<ItemStack>> getAllEquippedStacks(LivingEntity entity) {
+        return Collections.emptyMap();
+    }
 }

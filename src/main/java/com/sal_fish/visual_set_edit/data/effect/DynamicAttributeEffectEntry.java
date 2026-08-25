@@ -20,12 +20,12 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
 
     public enum VariableType {
         GAME_TIME, DAY_TIME, DISTANCE_TO_SPAWN, POS_Y,
-        HEALTH, FOOD, XP_LEVEL, EQUIPPED_DURATION,
+        HEALTH, HEALTH_PERCENT, FOOD, FOOD_PERCENT, XP_LEVEL, EQUIPPED_DURATION,
         KILL_COUNT_SINCE_EQUIP,
         L2H_CHUNK_DIFFICULTY,
         L2H_PLAYER_DIFFICULTY,
         ATTRIBUTE_VALUE
-        }
+    }
 
     public enum FormulaType {
         LINEAR, QUADRATIC, EXPONENTIAL, LOGARITHMIC,
@@ -136,7 +136,14 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             }
             case POS_Y -> raw = entity.getY();
             case HEALTH -> raw = entity.getHealth();
+            case HEALTH_PERCENT -> {
+                float max = entity.getMaxHealth();
+                raw = max > 0 ? (entity.getHealth() / max) * 100.0 : 0;
+            }
             case FOOD -> raw = (entity instanceof Player player) ? player.getFoodData().getFoodLevel() : 0;
+            case FOOD_PERCENT -> {
+                raw = (entity instanceof Player player) ? (player.getFoodData().getFoodLevel() / 20.0) * 100.0 : 0;
+            }
             case XP_LEVEL -> raw = (entity instanceof Player player) ? player.experienceLevel : 0;
             case EQUIPPED_DURATION -> {
                 if (startTick == null) startTick = entity.level().getGameTime();
