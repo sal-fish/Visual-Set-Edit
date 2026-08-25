@@ -348,5 +348,10 @@
   "visual_set_edit.gui.effect.custom_color_hex": "Or enter Hex color",
   "visual_set_edit.gui.custom_text.hex_color": "Hex Color:",
   "visual_set_edit.gui.custom_text.insert": "Insert",
-  "visual_set_edit.gui.effect.show_pointer": "Show Pointer"
+  "visual_set_edit.gui.effect.show_pointer": "Show Pointer",
+  "visual_set_edit.gui.target_filter.type.none": "None",
+  "visual_set_edit.gui.target_filter.type.block_id": "Block ID",
+  "visual_set_edit.gui.target_filter.type.block_tag": "Block Tag",
+  "visual_set_edit.gui.target_filter.type.entity_id": "Entity Type ID",
+  "visual_set_edit.gui.target_filter.type.entity_tag": "Entity Type Tag"
 }

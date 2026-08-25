@@ -346,5 +346,10 @@
   "visual_set_edit.gui.effect.custom_color_hex": "输入Hex颜色",
   "visual_set_edit.gui.custom_text.hex_color": "Hex颜色:",
   "visual_set_edit.gui.custom_text.insert": "插入",
-  "visual_set_edit.gui.effect.show_pointer": "显示指针"
+  "visual_set_edit.gui.effect.show_pointer": "显示指针",
+  "visual_set_edit.gui.target_filter.type.none": "无",
+  "visual_set_edit.gui.target_filter.type.block_id": "方块 ID",
+  "visual_set_edit.gui.target_filter.type.block_tag": "方块 Tag",
+  "visual_set_edit.gui.target_filter.type.entity_id": "实体 ID",
+  "visual_set_edit.gui.target_filter.type.entity_tag": "实体 Tag"
 }
