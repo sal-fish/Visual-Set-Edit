@@ -158,11 +158,27 @@ public class SetEventHandler {
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof PotionEffectEntry pot && "ATTACK_TARGET".equals(pot.target)) {
+                        if (pot.durationSeconds != -1 && pot.cooldownSeconds > 0) {
+                            pot.ensureUniqueId();
+                            long lastApplied = attacker.getPersistentData().getLong("vse_cd_" + pot.uniqueId);
+                            long now = attacker.level().getGameTime();
+                            long cooldownTicks = pot.cooldownSeconds * 20L;
+                            if (lastApplied > 0 && (now - lastApplied) < cooldownTicks) {
+                                continue;
+                            }
+                        }
+
                         MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(ResourceLocation.tryParse(pot.mobEffectId));
                         if (effect != null) {
                             int dur = pot.durationSeconds == -1 ? MobEffectInstance.INFINITE_DURATION :
                                     (pot.durationSeconds <= 0 ? 60 : pot.durationSeconds * 20);
                             target.addEffect(new MobEffectInstance(effect, dur, pot.amplifier, false, pot.showParticles), attacker);
+
+                            // 记录冷却时间
+                            if (pot.durationSeconds != -1 && pot.cooldownSeconds > 0) {
+                                pot.ensureUniqueId();
+                                attacker.getPersistentData().putLong("vse_cd_" + pot.uniqueId, attacker.level().getGameTime());
+                            }
                         }
                     }
                 }
@@ -250,8 +266,6 @@ public class SetEventHandler {
     public void onMobEffectExpired(MobEffectEvent.Expired event) {
         SNAPSHOT_HASH_CACHE.remove(event.getEntity().getUUID());
     }
-
-    // ========== 新触发器事件 ==========
 
     @SubscribeEvent
     public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
