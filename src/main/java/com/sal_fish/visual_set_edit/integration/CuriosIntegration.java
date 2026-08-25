@@ -102,7 +102,8 @@ public class CuriosIntegration implements IModIntegration {
     @Override public double getMana(LivingEntity player) { return 0; }
     @Override public double getManaPercent(LivingEntity player) { return 0; }
     @Override public boolean isCasting(LivingEntity player) { return false; }
-    @Override public boolean tryCastActiveSpell(LivingEntity player) { return false; }
+    @Override public void tryCastActiveSpell(LivingEntity player) {
+    }
 
     @Override public List<String> getExtraSlots() {
         Set<String> slotIds = CuriosApi.getSlotHelper().getSlotTypeIds();

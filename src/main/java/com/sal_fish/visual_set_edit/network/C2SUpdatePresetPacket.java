@@ -4,7 +4,9 @@ import com.google.common.reflect.TypeToken;
 import com.sal_fish.visual_set_edit.VisualSetEdit;
 import com.sal_fish.visual_set_edit.config.PresetManager;
 import com.sal_fish.visual_set_edit.data.Preset;
+import com.sal_fish.visual_set_edit.event.SetEventHandler;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
 
@@ -20,14 +22,10 @@ public record C2SUpdatePresetPacket(List<Preset> presets) {
 
     public static void encode(C2SUpdatePresetPacket msg, FriendlyByteBuf buf) {
         try {
-            // 1. 序列化为 JSON 字符串
             String json = PresetManager.GSON.toJson(msg.presets);
-            // 2. 使用 GZIP 压缩
             byte[] compressed = compress(json);
-            // 3. 写入字节数组（无长度限制）
             buf.writeByteArray(compressed);
         } catch (IOException e) {
-            // 不应该发生，但以防万一
             throw new RuntimeException("Failed to compress packet data", e);
         }
     }
@@ -47,25 +45,27 @@ public record C2SUpdatePresetPacket(List<Preset> presets) {
 
     public static void handle(C2SUpdatePresetPacket msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            if (Objects.requireNonNull(ctx.get().getSender()).hasPermissions(2)) {
+            ServerPlayer sender = ctx.get().getSender();
+            if (sender != null && sender.hasPermissions(2)) {
                 PresetManager.savePresets(msg.presets);
                 VsePacketHandler.INSTANCE.send(
                         PacketDistributor.ALL.noArg(),
                         new S2CSyncPresetsPacket(msg.presets)
                 );
+
+                for (ServerPlayer player : sender.server.getPlayerList().getPlayers()) {
+                    SetEventHandler.forceReevaluate(player);
+                }
             }
         });
         ctx.get().setPacketHandled(true);
     }
-
-    // ========== 压缩工具方法 ==========
 
     private static byte[] compress(String str) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
             gzip.write(str.getBytes(StandardCharsets.UTF_8));
         }
-        // GZIPOutputStream 在 close 时才完成写入，这里 try-with-resources 会调用 close
         return baos.toByteArray();
     }
 

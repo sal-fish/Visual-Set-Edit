@@ -5,9 +5,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.sal_fish.visual_set_edit.VisualSetEdit;
 import com.sal_fish.visual_set_edit.data.Preset;
+import com.sal_fish.visual_set_edit.data.SetPhase;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
 import com.sal_fish.visual_set_edit.data.condition.Condition;
 import com.sal_fish.visual_set_edit.data.condition.ConditionAdapter;
+import com.sal_fish.visual_set_edit.data.condition.EnvironmentCondition;
 import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
 import com.sal_fish.visual_set_edit.data.effect.EffectEntryAdapter;
 import net.minecraft.core.registries.Registries;
@@ -31,18 +33,23 @@ public class PresetManager {
             .setPrettyPrinting()
             .create();
 
-
     private static final Path OLD_PRESETS_FILE = FMLPaths.CONFIGDIR.get().resolve("visual_set_edit/presets.json");
-
     private static final Path PRESETS_DIR = FMLPaths.CONFIGDIR.get().resolve("visual_set_edit/presets");
 
     private static List<Preset> presets = new ArrayList<>();
     public static List<Preset> clientPresets = new ArrayList<>();
 
     private static final Map<String, Set<String>> ITEM_TO_PRESETS = new HashMap<>();
+    public static final Set<String> ZERO_COUNT_PRESET_IDS = new HashSet<>();
+    private static final Map<String, Preset> PRESET_BY_ID = new HashMap<>();
+    public static final Set<String> TIME_SENSITIVE_PHASE_IDS = new HashSet<>();
 
     public static List<Preset> getPresets() {
         return Collections.unmodifiableList(presets);
+    }
+
+    public static Preset getPresetById(String id) {
+        return PRESET_BY_ID.get(id);
     }
 
     public static Set<String> getPresetIdsForItem(String itemId) {
@@ -80,10 +87,8 @@ public class PresetManager {
                 List<Preset> oldPresets = GSON.fromJson(json, new TypeToken<List<Preset>>(){}.getType());
                 if (oldPresets != null) {
                     loaded = oldPresets;
-                    // 迁移后保存为新格式
                     presets = loaded;
                     savePresets(presets);
-                    // 删除旧文件（可选）
                     Files.delete(OLD_PRESETS_FILE);
                 }
             } catch (Exception e) {
@@ -102,7 +107,6 @@ public class PresetManager {
         try {
             Files.createDirectories(PRESETS_DIR);
 
-            // 清除目录中所有旧的预设文件
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(PRESETS_DIR, "*.json")) {
                 for (Path file : stream) {
                     Files.delete(file);
@@ -111,14 +115,12 @@ public class PresetManager {
                 VisualSetEdit.LOGGER.error("Failed to clean presets directory", e);
             }
 
-            // 写入每个预设到单独的文件
             for (Preset preset : newPresets) {
                 String json = GSON.toJson(preset);
                 Path file = PRESETS_DIR.resolve(preset.id + ".json");
                 Files.writeString(file, json, StandardCharsets.UTF_8);
             }
 
-            // 同时保留一份完整备份到旧文件路径
             String fullJson = GSON.toJson(newPresets);
             Files.writeString(OLD_PRESETS_FILE, fullJson, StandardCharsets.UTF_8);
 
@@ -140,15 +142,44 @@ public class PresetManager {
     //索引重建
     public static void rebuildIndex() {
         ITEM_TO_PRESETS.clear();
+        ZERO_COUNT_PRESET_IDS.clear();
+        PRESET_BY_ID.clear();
+        TIME_SENSITIVE_PHASE_IDS.clear();
+
+        // 填充 PRESET_BY_ID 并检查零件套和时间敏感阶段
         for (Preset preset : presets) {
+            PRESET_BY_ID.put(preset.id, preset);
+
+            boolean isZeroCount = false;
+            for (int i = 0; i < preset.phases.size(); i++) {
+                SetPhase phase = preset.phases.get(i);
+                if (phase.requiredCount <= 0) {
+                    isZeroCount = true;
+                }
+                // 检查时间敏感条件
+                boolean hasTimeCondition = false;
+                for (Condition cond : phase.additionalConditions) {
+                    if (cond instanceof EnvironmentCondition env && "TIME".equals(env.field)) {
+                        hasTimeCondition = true;
+                        break;
+                    }
+                }
+                if (hasTimeCondition) {
+                    TIME_SENSITIVE_PHASE_IDS.add(preset.id + ":" + i);
+                }
+            }
+            if (isZeroCount) {
+                ZERO_COUNT_PRESET_IDS.add(preset.id);
+            }
+
+            // 构建物品索引（原有逻辑）
             for (SlotCondition cond : preset.getAllSlotConditions()) {
                 if (cond.itemId != null && !cond.itemId.isEmpty()
                         && (cond.tagId == null || cond.tagId.isEmpty())) {
                     ITEM_TO_PRESETS
                             .computeIfAbsent(cond.itemId, k -> new HashSet<>())
                             .add(preset.id);
-                }
-                else if (cond.tagId != null && !cond.tagId.isEmpty()) {
+                } else if (cond.tagId != null && !cond.tagId.isEmpty()) {
                     ResourceLocation tagRl = ResourceLocation.tryParse(cond.tagId);
                     if (tagRl != null) {
                         TagKey<Item> tagKey = TagKey.create(Registries.ITEM, tagRl);

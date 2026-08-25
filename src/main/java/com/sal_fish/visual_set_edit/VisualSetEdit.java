@@ -11,6 +11,7 @@ import com.sal_fish.visual_set_edit.network.VsePacketHandler;
 import com.sal_fish.visual_set_edit.proxy.ClientProxy;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -44,14 +45,9 @@ public class VisualSetEdit {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         VsePacketHandler.register();
-
-        //初始化联动运行时（如铁魔法事件监听），类型注册已在 EffectEntryAdapter 静态初始化中完成
         IntegrationManager.initCompat();
-
-        //加载预设（此时所有效果类型均已注册，可以正常反序列化）
         PresetManager.loadPresets();
 
-        //Curios 联动初始化
         if (IntegrationManager.isCuriosLoaded()) {
             CuriosItemMappingManager.load();
             IntegrationManager.getCurios().onInitialize();
@@ -69,6 +65,12 @@ public class VisualSetEdit {
                         CuriosItemMappingManager.load();
                     }
                     ActiveSetTracker.clearAll();
+
+                    MinecraftServer server = ctx.getSource().getServer();
+                    for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                        SetEventHandler.forceReevaluate(player);
+                    }
+
                     ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.translatable("visual_set_edit.command.reload.success"), true);
                     return 1;
                 }))

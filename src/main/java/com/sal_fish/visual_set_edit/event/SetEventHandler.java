@@ -110,7 +110,6 @@ public class SetEventHandler {
                 }
             }
 
-            // 原有击杀计数逻辑
             for (var active : ActiveSetTracker.getActivePhases(killer)) {
                 for (EffectEntry effect : active.phase().effects) {
                     if (effect instanceof DynamicAttributeEffectEntry dynEff
@@ -120,6 +119,10 @@ public class SetEventHandler {
                 }
             }
         }
+
+        // 清理内存
+        SNAPSHOT_HASH_CACHE.remove(dead.getUUID());
+        ActiveSetTracker.removeEntity(dead);
     }
 
     @SubscribeEvent
@@ -145,7 +148,6 @@ public class SetEventHandler {
                 }
             }
 
-            // 药水 ATTACK_TARGET
             for (var active : ActiveSetTracker.getActivePhases(attacker)) {
                 for (EffectEntry entry : active.phase().effects) {
                     if (entry instanceof PotionEffectEntry pot && "ATTACK_TARGET".equals(pot.target)) {
@@ -264,24 +266,25 @@ public class SetEventHandler {
         if (!force) {
             int currentHash = computeDynamicHash(entity);
             Integer lastHash = SNAPSHOT_HASH_CACHE.get(entity.getUUID());
-            if (lastHash != null && lastHash == currentHash) return;
+            if (lastHash != null && lastHash == currentHash) {
+                evaluateTimeSensitivePhases(entity);
+                return;
+            }
             SNAPSHOT_HASH_CACHE.put(entity.getUUID(), currentHash);
         } else {
             SNAPSHOT_HASH_CACHE.remove(entity.getUUID());
         }
 
+        fullReevaluate(entity);
+    }
+
+    private void fullReevaluate(LivingEntity entity) {
         Set<String> equippedIds = collectEquippedItemIds(entity);
         Set<String> candidatePresetIds = new HashSet<>();
         for (String id : equippedIds) candidatePresetIds.addAll(PresetManager.getPresetIdsForItem(id));
 
-        for (Preset preset : PresetManager.getPresets()) {
-            for (SetPhase phase : preset.phases) {
-                if (phase.requiredCount <= 0) {
-                    candidatePresetIds.add(preset.id);
-                    break;
-                }
-            }
-        }
+        // 加入所有零件套预设 ID
+        candidatePresetIds.addAll(PresetManager.ZERO_COUNT_PRESET_IDS);
 
         List<ActiveSetTracker.ActivePhase> newPhases;
         if (candidatePresetIds.isEmpty()) {
@@ -289,23 +292,60 @@ public class SetEventHandler {
         } else {
             newPhases = new ArrayList<>();
             for (String pid : candidatePresetIds) {
-                for (Preset preset : PresetManager.getPresets()) {
-                    if (preset.id.equals(pid)) {
-                        for (int i = 0; i < preset.phases.size(); i++) {
-                            SetPhase phase = preset.phases.get(i);
-                            if (isPhaseActive(entity, phase)) {
-                                newPhases.add(new ActiveSetTracker.ActivePhase(preset.id, i, phase));
-                            }
-                        }
+                Preset preset = PresetManager.getPresetById(pid);
+                if (preset == null) continue;
+                for (int i = 0; i < preset.phases.size(); i++) {
+                    SetPhase phase = preset.phases.get(i);
+                    if (isPhaseActive(entity, phase)) {
+                        newPhases.add(new ActiveSetTracker.ActivePhase(preset.id, i, phase));
                     }
                 }
             }
         }
 
         List<ActiveSetTracker.ActivePhase> oldPhases = ActiveSetTracker.getActivePhases(entity);
-        if (phasesEqual(oldPhases, newPhases)) return; // 阶段未变，不重建效果
+        if (phasesEqual(oldPhases, newPhases)) return;
 
         recreateEffectsFromList(entity, newPhases);
+    }
+
+    private void evaluateTimeSensitivePhases(LivingEntity entity) {
+        Set<String> timeSensitiveIds = PresetManager.TIME_SENSITIVE_PHASE_IDS;
+        if (timeSensitiveIds.isEmpty()) return;
+
+        List<ActiveSetTracker.ActivePhase> oldPhases = ActiveSetTracker.getActivePhases(entity);
+        List<ActiveSetTracker.ActivePhase> newPhases = new ArrayList<>();
+
+        // 保留所有非时间敏感阶段的旧激活状态
+        for (ActiveSetTracker.ActivePhase old : oldPhases) {
+            String key = old.presetId() + ":" + old.phaseIndex();
+            if (!timeSensitiveIds.contains(key)) {
+                newPhases.add(old);
+            }
+        }
+
+        // 重新评估所有时间敏感阶段
+        for (String key : timeSensitiveIds) {
+            String[] parts = key.split(":", 2);
+            if (parts.length != 2) continue;
+            String presetId = parts[0];
+            int phaseIndex;
+            try {
+                phaseIndex = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            Preset preset = PresetManager.getPresetById(presetId);
+            if (preset == null || phaseIndex < 0 || phaseIndex >= preset.phases.size()) continue;
+            SetPhase phase = preset.phases.get(phaseIndex);
+            if (isPhaseActive(entity, phase)) {
+                newPhases.add(new ActiveSetTracker.ActivePhase(presetId, phaseIndex, phase));
+            }
+        }
+
+        if (!phasesEqual(oldPhases, newPhases)) {
+            recreateEffectsFromList(entity, newPhases);
+        }
     }
 
     private int computeDynamicHash(LivingEntity entity) {
@@ -333,14 +373,12 @@ public class SetEventHandler {
         boolean isRaining = level.isRaining();
         boolean isThundering = level.isThundering();
         int moonPhase = level.getMoonPhase();
-        int dayTime = (int) (level.getDayTime() % 24000);
-
         int skyLight = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, entity.blockPosition());
         int blockLight = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, entity.blockPosition());
         int temperature = (int) (level.getBiome(entity.blockPosition()).get().getBaseTemperature() * 100);
 
         List<String> activeEffects = entity.getActiveEffects().stream()
-                .map(effect -> ForgeRegistries.MOB_EFFECTS.getKey(effect.getEffect()).toString())
+                .map(effect -> Objects.requireNonNull(ForgeRegistries.MOB_EFFECTS.getKey(effect.getEffect())).toString())
                 .sorted()
                 .collect(Collectors.toList());
 
@@ -353,7 +391,7 @@ public class SetEventHandler {
 
         return Objects.hash(health, food, armor, xpLevel, fallDistance,
                 submerged, sneaking, sprinting, swimming, onGround, onWall, flying, sleeping, riding,
-                dimension, biome, blockY, isRaining, isThundering, moonPhase, dayTime,
+                dimension, biome, blockY, isRaining, isThundering, moonPhase,
                 skyLight, blockLight, temperature,
                 activeEffects, mana, manaPercent);
     }
@@ -559,7 +597,6 @@ public class SetEventHandler {
     }
 
     private boolean isPhaseActive(LivingEntity entity, SetPhase phase) {
-        // 排序
         List<SlotCondition> sortedConditions = new ArrayList<>(phase.slotConditions);
         sortedConditions.sort(Comparator.comparingInt(cond ->
                 (cond.nbtRule == NbtMatchRule.IGNORE) ? 1 : 0));

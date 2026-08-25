@@ -18,7 +18,6 @@ public class SlotConditionEditScreen extends Screen {
     private final int index;
     private final Screen parent;
     private EditBox minDurabilityEdit, maxDurabilityEdit, tagEdit;
-    private Button slotSelectButton;
     private Button itemSelectButton;
     private String selectedSlot;
     private ResourceLocation selectedItem;
@@ -58,8 +57,7 @@ public class SlotConditionEditScreen extends Screen {
         addRenderableWidget(slotLabel);
         y += rowHeight;
 
-        // 显示当前槽位的按钮
-        slotSelectButton = Button.builder(
+        Button slotSelectButton = Button.builder(
                 getSlotButtonText(),
                 btn -> {
                     // 保存当前所有编辑内容到 SlotCondition（除 slot 外）

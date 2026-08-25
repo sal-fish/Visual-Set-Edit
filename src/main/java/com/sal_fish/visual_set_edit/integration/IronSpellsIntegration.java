@@ -47,8 +47,8 @@ public class IronSpellsIntegration implements IModIntegration {
     }
 
     @Override
-    public boolean tryCastActiveSpell(LivingEntity player) {
-        if (!(player instanceof ServerPlayer sp)) return false;
+    public void tryCastActiveSpell(LivingEntity player) {
+        if (!(player instanceof ServerPlayer sp)) return;
         for (ActiveSetTracker.ActivePhase active : ActiveSetTracker.getActivePhases(sp)) {
             SetPhase phase = active.phase();
             for (var effect : phase.effects) {
@@ -58,15 +58,15 @@ public class IronSpellsIntegration implements IModIntegration {
                     AbstractSpell spell = SpellRegistry.REGISTRY.get().getValue(spellId);
                     if (spell == null) {
                         sp.sendSystemMessage(Component.translatable("visual_set_edit.integration.spell_not_found", spellId));
-                        return false;
+                        return;
                     }
                     // 使用效果中配置的等级
                     int level = Math.max(1, spellEffect.spellLevel);
-                    return spell.attemptInitiateCast(ItemStack.EMPTY, level, sp.level(), sp, CastSource.SPELLBOOK, true, "mainhand");
+                    spell.attemptInitiateCast(ItemStack.EMPTY, level, sp.level(), sp, CastSource.SPELLBOOK, true, "mainhand");
+                    return;
                 }
             }
         }
-        return false;
     }
 
     // Curios 方法

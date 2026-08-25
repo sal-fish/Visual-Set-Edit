@@ -12,7 +12,7 @@ public interface IModIntegration {
     double getMana(LivingEntity player);
     double getManaPercent(LivingEntity player);
     boolean isCasting(LivingEntity player);
-    boolean tryCastActiveSpell(LivingEntity player);
+    void tryCastActiveSpell(LivingEntity player);
 
     // Curios（所有实现类必须提供）
     List<String> getExtraSlots();
