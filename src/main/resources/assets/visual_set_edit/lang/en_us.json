@@ -353,5 +353,9 @@
   "visual_set_edit.gui.target_filter.type.block_id": "Block ID",
   "visual_set_edit.gui.target_filter.type.block_tag": "Block Tag",
   "visual_set_edit.gui.target_filter.type.entity_id": "Entity Type ID",
-  "visual_set_edit.gui.target_filter.type.entity_tag": "Entity Type Tag"
+  "visual_set_edit.gui.target_filter.type.entity_tag": "Entity Type Tag",
+  "visual_set_edit.gui.condition.attribute": "Attribute",
+  "visual_set_edit.gui.condition.type.attribute": "Attribute",
+  "visual_set_edit.condition.comparator.NEQ": "≠",
+  "visual_set_edit.gui.condition.comparator.NEQ": "≠"
 }

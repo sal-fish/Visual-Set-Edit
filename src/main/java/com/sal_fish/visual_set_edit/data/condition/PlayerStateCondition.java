@@ -40,7 +40,10 @@ public class PlayerStateCondition extends Condition {
                 case "FLYING" -> entity instanceof Player player && player.getAbilities().flying;
                 case "SLEEPING" -> entity.isSleeping();
                 case "RIDING" -> entity.isPassenger();
-                case "TAG" -> entity.getTags().contains(value);
+                case "TAG" -> {
+                    boolean hasTag = entity.getTags().contains(value);
+                    yield "NEQ".equals(comparator) != hasTag;
+                }
                 case "IS_HURT" -> {
                     int windowSec = 0;
                     float threshold = 0;
@@ -95,6 +98,7 @@ public class PlayerStateCondition extends Condition {
         int target = Integer.parseInt(val);
         return switch (comp) {
             case "EQ" -> actual == target;
+            case "NEQ" -> actual != target;
             case "GT" -> actual > target;
             case "LT" -> actual < target;
             case "GTE" -> actual >= target;
@@ -107,6 +111,7 @@ public class PlayerStateCondition extends Condition {
     private boolean compareFloat(float actual, String comp, float target) {
         return switch (comp) {
             case "EQ" -> actual == target;
+            case "NEQ" -> actual != target;
             case "GT" -> actual > target;
             case "LT" -> actual < target;
             case "GTE" -> actual >= target;

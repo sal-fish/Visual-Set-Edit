@@ -11,6 +11,9 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -40,6 +43,12 @@ public class ConditionEditScreen extends Screen {
     private String isField = "MANA";
     private String isComparator = "EQ";
     private double isValue = 0;
+
+    private String attrId = "";
+    private String attrComparator = "GTE";
+    private double attrValue = 0;
+    private EditBox attrValueEdit;
+    private Button selectAttrButton;
 
     private EditBox valueEdit, invDurMinEdit, invDurMaxEdit, isValueEdit;
     private Button invSlotButton, invItemButton;
@@ -84,6 +93,10 @@ public class ConditionEditScreen extends Screen {
             isField = is.field;
             isComparator = is.comparator;
             isValue = is.value;
+        } else if (c instanceof AttributeCondition attrCond) {
+            attrId = attrCond.attributeId;
+            attrComparator = attrCond.comparator;
+            attrValue = attrCond.value;
         } else if (c instanceof CompositeCondition comp) {
             compOp = comp.op;
             children.clear();
@@ -105,7 +118,7 @@ public class ConditionEditScreen extends Screen {
         y += rowHeight;
         CycleButton<String> typeButton = CycleButton.<String>builder(s ->
                         Component.translatable("visual_set_edit.gui.condition.type." + s))
-                .withValues("environment", "player_state", "inventory", "iron_spell", "composite")
+                .withValues("environment", "player_state", "inventory", "iron_spell", "attribute", "composite")
                 .displayOnlyValue()
                 .withInitialValue(condType)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -121,6 +134,7 @@ public class ConditionEditScreen extends Screen {
             case "inventory" -> buildInventoryFields(centerX, y, totalWidth, rowHeight, spacing);
             case "iron_spell" -> buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
             case "composite" -> buildCompositeFields(centerX, y, totalWidth, rowHeight, spacing);
+            case "attribute" -> buildAttributeConditionFields(centerX, y, totalWidth, rowHeight, spacing);
         }
     }
 
@@ -146,20 +160,20 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight + spacing;
         }
 
-        // 比较符部分：IS_HURT 不需要比较符
-        if (!"IS_HURT".equals(field)) {
+        // 比较符部分：IS_HURT 和 TAG 不需要通用比较符
+        if (!"IS_HURT".equals(field) && !"TAG".equals(field)) {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
             y += rowHeight;
             CycleButton<String> comparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
-                    .withValues("EQ", "GT", "LT", "GTE", "LTE")
+                    .withValues("EQ", "NEQ", "GT", "LT", "GTE", "LTE")
                     .displayOnlyValue()
                     .withInitialValue(comparator)
                     .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                             Component.translatable("visual_set_edit.gui.condition.comparator"), (btn, val) -> comparator = val);
             addRenderableWidget(comparatorButton);
             y += rowHeight + spacing;
-        } else {
+        } else if ("IS_HURT".equals(field)) {
             comparator = ""; // IS_HURT 不比较
         }
 
@@ -214,7 +228,21 @@ public class ConditionEditScreen extends Screen {
             addRenderableWidget(thresholdEdit);
             y += rowHeight + spacing;
         } else if ("TAG".equals(field)) {
-            comparator = "";
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.condition.comparator"), font));
+            y += rowHeight;
+            CycleButton<String> tagComparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+                    .withValues("EQ", "NEQ")
+                    .displayOnlyValue()
+                    .withInitialValue(comparator.isEmpty() ? "EQ" : comparator)
+                    .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                            Component.translatable("visual_set_edit.gui.condition.comparator"), (btn, val) -> comparator = val);
+            addRenderableWidget(tagComparatorButton);
+            y += rowHeight + spacing;
+
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.condition.tag_name"), font));
+            y += rowHeight;
             valueEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.tag_name"));
             valueEdit.setMaxLength(256);
@@ -403,7 +431,7 @@ public class ConditionEditScreen extends Screen {
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
             y += rowHeight;
             CycleButton<String> isComparatorButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
-                    .withValues("EQ", "GT", "LT", "GTE", "LTE")
+                    .withValues("EQ", "NEQ", "GT", "LT", "GTE", "LTE")
                     .displayOnlyValue()
                     .withInitialValue(isComparator)
                     .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -421,6 +449,51 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight + spacing;
         }
         y += 6;
+        saveButton(centerX, y, totalWidth, rowHeight);
+    }
+    //属性条件
+    private void buildAttributeConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        // 属性选择按钮
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.attribute"), font));
+        y += rowHeight;
+        selectAttrButton = Button.builder(getAttrButtonText(), btn -> {
+            assert minecraft != null;
+            minecraft.setScreen(new AttributeListScreen(this, rl -> {
+                attrId = rl.toString();
+                selectAttrButton.setMessage(getAttrButtonText());
+            }));
+        }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
+        addRenderableWidget(selectAttrButton);
+        y += rowHeight + spacing;
+
+        // 比较符
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.comparator"), font));
+        y += rowHeight;
+        CycleButton<String> comparatorBtn = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+                .withValues("EQ", "NEQ", "GT", "LT", "GTE", "LTE")
+                .displayOnlyValue()
+                .withInitialValue(attrComparator)
+                .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.condition.comparator"), (btn, val) -> attrComparator = val);
+        addRenderableWidget(comparatorBtn);
+        y += rowHeight + spacing;
+
+        // 数值输入
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"), font));
+        y += rowHeight;
+        attrValueEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"));
+        attrValueEdit.setMaxLength(5201314);
+        attrValueEdit.setValue(String.valueOf(attrValue));
+        attrValueEdit.setResponder(s -> {
+            try { attrValue = Double.parseDouble(s); } catch (Exception ignored) {}
+        });
+        addRenderableWidget(attrValueEdit);
+        y += rowHeight + spacing;
+
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
@@ -530,6 +603,13 @@ public class ConditionEditScreen extends Screen {
                 try { is.value = Double.parseDouble(isValueEdit != null ? isValueEdit.getValue() : "0"); } catch(Exception ignored) {}
                 yield is;
             }
+            case "attribute" -> {
+                AttributeCondition ac = new AttributeCondition();
+                ac.attributeId = attrId;
+                ac.comparator = attrComparator;
+                try { ac.value = Double.parseDouble(attrValueEdit.getValue()); } catch (Exception ignored) {}
+                yield ac;
+            }
             case "composite" -> {
                 CompositeCondition cc = new CompositeCondition();
                 cc.op = compOp;
@@ -567,6 +647,20 @@ public class ConditionEditScreen extends Screen {
             return Component.literal(invItemId);
         }
         return Component.translatable("visual_set_edit.gui.click_select_item");
+    }
+
+    private Component getAttrButtonText() {
+        if (attrId == null || attrId.isEmpty()) {
+            return Component.translatable("visual_set_edit.gui.click_select_item");
+        }
+        ResourceLocation rl = ResourceLocation.tryParse(attrId);
+        if (rl != null) {
+            Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(rl);
+            if (attr != null) {
+                return Component.translatable(attr.getDescriptionId());
+            }
+        }
+        return Component.literal(attrId);
     }
 
     @Override

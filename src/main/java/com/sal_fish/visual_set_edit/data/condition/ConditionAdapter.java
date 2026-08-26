@@ -10,7 +10,8 @@ public class ConditionAdapter implements JsonDeserializer<Condition>, JsonSerial
             "environment", EnvironmentCondition.class,
             "player_state", PlayerStateCondition.class,
             "inventory", InventoryCondition.class,
-            "iron_spell", IronSpellCondition.class
+            "iron_spell", IronSpellCondition.class,
+            "attribute", AttributeCondition.class
     );
 
     @Override

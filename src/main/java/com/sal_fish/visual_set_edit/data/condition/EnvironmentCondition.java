@@ -61,6 +61,7 @@ public class EnvironmentCondition extends Condition {
             case "LT" -> actual < val;
             case "GTE" -> actual >= val;
             case "LTE" -> actual <= val;
+            case "NEQ" -> actual != val;
             default -> false;
         };
     }

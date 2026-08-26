@@ -31,6 +31,7 @@ public class IronSpellCondition extends Condition {
             case "LT" -> a < b;
             case "GTE" -> a >= b;
             case "LTE" -> a <= b;
+            case "NEQ" -> a != b;
             default -> false;
         };
     }
