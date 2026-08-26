@@ -15,11 +15,19 @@ import java.util.function.Consumer;
 public class ScrollableSelectionList extends ObjectSelectionList<ScrollableSelectionList.Entry> {
 
     private final Consumer<Entry> onSelect;
+    @Nullable
+    private final Consumer<Entry> onRightClick;
 
     public ScrollableSelectionList(Minecraft minecraft, int width, int height, int y0, int itemHeight,
                                    Consumer<Entry> onSelect) {
+        this(minecraft, width, height, y0, itemHeight, onSelect, null);
+    }
+
+    public ScrollableSelectionList(Minecraft minecraft, int width, int height, int y0, int itemHeight,
+                                   Consumer<Entry> onSelect, @Nullable Consumer<Entry> onRightClick) {
         super(minecraft, width, height, y0, y0 + height, itemHeight);
         this.onSelect = onSelect;
+        this.onRightClick = onRightClick;
     }
 
     public void clearAllEntries() {
@@ -33,12 +41,17 @@ public class ScrollableSelectionList extends ObjectSelectionList<ScrollableSelec
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // 仅当鼠标落在列表可视区域内时才检查条目
         if (mouseY < this.y0 || mouseY > this.y1) {
             return false;
         }
         Entry entry = getEntryAtPosition(mouseX, mouseY);
-        if (entry != null && onSelect != null) {
+        if (entry == null) return false;
+
+        if (button == 1 && onRightClick != null) { // 右键
+            onRightClick.accept(entry);
+            return true;
+        }
+        if (button == 0 && onSelect != null) { // 左键
             onSelect.accept(entry);
             return true;
         }

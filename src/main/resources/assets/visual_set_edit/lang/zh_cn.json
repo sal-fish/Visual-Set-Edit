@@ -355,5 +355,12 @@
   "visual_set_edit.gui.condition.attribute": "属性",
   "visual_set_edit.gui.condition.type.attribute": "属性",
   "visual_set_edit.condition.comparator.NEQ": "≠",
-  "visual_set_edit.gui.condition.comparator.NEQ": "≠"
+  "visual_set_edit.gui.condition.comparator.NEQ": "≠",
+  "visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE": "计分板分数",
+  "visual_set_edit.gui.scoreboard_register.title": "计分板注册",
+  "visual_set_edit.gui.scoreboard_register.name": "计分板名称",
+  "visual_set_edit.gui.scoreboard_register.button": "计分板注册",
+  "visual_set_edit.gui.select_scoreboard_objective": "选择计分板",
+  "visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective": "计分板目标",
+  "visual_set_edit.gui.add": "添加"
 }

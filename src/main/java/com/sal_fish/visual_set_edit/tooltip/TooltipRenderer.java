@@ -6,6 +6,7 @@ import com.sal_fish.visual_set_edit.data.SetPhase;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
 import com.sal_fish.visual_set_edit.data.condition.Condition;
 import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
+import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
@@ -224,7 +225,16 @@ public class TooltipRenderer {
 
     private boolean isSlotMatched(Player player, SlotCondition cond) {
         if (player == null) return false;
-        if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
+        if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+            if (!IntegrationManager.isCuriosLoaded()) return false;
+            for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
+                List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, slotId);
+                for (ItemStack s : stacks) {
+                    if (cond.matches(s)) return true;
+                }
+            }
+            return false;
+        } else if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
             String realSlotId = cond.slot.substring(7);
             List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, realSlotId);
             for (ItemStack s : stacks) {
@@ -263,12 +273,30 @@ public class TooltipRenderer {
         Map<String, Set<Integer>> usedIndices = new HashMap<>();
 
         for (SlotCondition cond : phase.slotConditions) {
-            if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
+            if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+                if (!IntegrationManager.isCuriosLoaded()) continue;
+                boolean found = false;
+                for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
+                    List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, slotId);
+                    for (int i = 0; i < stacks.size(); i++) {
+                        if (usedIndices.containsKey(slotId) && usedIndices.get(slotId).contains(i)) {
+                            continue;
+                        }
+                        ItemStack stack = stacks.get(i);
+                        if (cond.matches(stack)) {
+                            found = true;
+                            usedIndices.computeIfAbsent(slotId, k -> new HashSet<>()).add(i);
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+                if (found) c++;
+            } else if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
                 String realSlotId = cond.slot.substring(7);
                 List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, realSlotId);
                 boolean found = false;
                 for (int i = 0; i < stacks.size(); i++) {
-                    // 跳过已被其他条件占用的索引
                     if (usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i)) {
                         continue;
                     }

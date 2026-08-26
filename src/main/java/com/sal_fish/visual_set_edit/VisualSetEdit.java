@@ -3,6 +3,7 @@ package com.sal_fish.visual_set_edit;
 import com.mojang.brigadier.CommandDispatcher;
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
 import com.sal_fish.visual_set_edit.config.PresetManager;
+import com.sal_fish.visual_set_edit.config.ScoreboardObjectiveManager;
 import com.sal_fish.visual_set_edit.event.ActiveSetTracker;
 import com.sal_fish.visual_set_edit.event.SetEventHandler;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
@@ -47,6 +48,7 @@ public class VisualSetEdit {
         VsePacketHandler.register();
         IntegrationManager.initCompat();
         PresetManager.loadPresets();
+        ScoreboardObjectiveManager.load();
 
         if (IntegrationManager.isCuriosLoaded()) {
             CuriosItemMappingManager.load();
@@ -61,12 +63,14 @@ public class VisualSetEdit {
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("reload").executes(ctx -> {
                     PresetManager.loadPresets();
+                    ScoreboardObjectiveManager.load();
                     if (IntegrationManager.isCuriosLoaded()) {
                         CuriosItemMappingManager.load();
                     }
                     ActiveSetTracker.clearAll();
 
                     MinecraftServer server = ctx.getSource().getServer();
+                    ScoreboardObjectiveManager.registerObjectives(server);
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                         SetEventHandler.forceReevaluate(player);
                     }
@@ -83,5 +87,10 @@ public class VisualSetEdit {
                     return 1;
                 }))
         );
+    }
+
+    @SubscribeEvent
+    public void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        ScoreboardObjectiveManager.registerObjectives(event.getServer());
     }
 }

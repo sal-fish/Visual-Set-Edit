@@ -103,6 +103,15 @@ public class PresetListScreen extends Screen {
             nextButtonIndex++;
         }
 
+        addRenderableWidget(Button.builder(
+                Component.translatable("visual_set_edit.gui.scoreboard_register.button"),
+                b -> {
+                    assert minecraft != null;
+                    minecraft.setScreen(new ScoreboardRegisterScreen(this));
+                }
+        ).pos(centerX, buttonY + spacing * nextButtonIndex).size(buttonWidth, 20).build());
+        nextButtonIndex++;
+
         // 可滚动列表区域
         int listTop = buttonY + spacing * nextButtonIndex + 5;
         int listBottom = height - 10;

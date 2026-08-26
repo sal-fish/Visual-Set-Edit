@@ -95,6 +95,9 @@ public class EffectEditScreen extends Screen {
     private EditBox dynamicClipMinEdit, dynamicClipMaxEdit;
     private Button selectDynamicAttributeButton;
     private final List<EditBox> coeffEdits = new ArrayList<>();
+    private String dynamicScoreboardObjective = "";
+    private EditBox scoreboardObjectiveEdit;
+    private Button selectScoreboardButton;
 
     // Custom
     private String customDisplayText = "";
@@ -176,6 +179,7 @@ public class EffectEditScreen extends Screen {
             dynamicClipMinX = dynAttr.clipMinX;
             dynamicClipMaxX = dynAttr.clipMaxX;
             dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
+            dynamicScoreboardObjective = dynAttr.scoreboardObjective != null ? dynAttr.scoreboardObjective : "";
         } else if (existing instanceof L2DifficultyModEffectEntry mod) {
             effectType = "l2_difficulty_mod";
             l2DifficultyAmount = mod.amount;
@@ -721,6 +725,33 @@ public class EffectEditScreen extends Screen {
             y += rowHeight + spacing;
         }
 
+        //当变量类型为“计分板”时
+        if (dynamicVariable == DynamicAttributeEffectEntry.VariableType.SCOREBOARD_VALUE) {
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective"), font));
+            y += rowHeight;
+
+            int editWidth = totalWidth - 22;
+            scoreboardObjectiveEdit = new EditBox(font, centerX - totalWidth / 2, y, editWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective"));
+            scoreboardObjectiveEdit.setMaxLength(5201314);
+            scoreboardObjectiveEdit.setValue(dynamicScoreboardObjective);
+            scoreboardObjectiveEdit.setResponder(s -> dynamicScoreboardObjective = s);
+            addRenderableWidget(scoreboardObjectiveEdit);
+
+            selectScoreboardButton = Button.builder(Component.literal("📦"), btn -> {
+                assert minecraft != null;
+                minecraft.setScreen(new ScoreboardObjectiveListScreen(this, name -> {
+                    dynamicScoreboardObjective = name;
+                    if (scoreboardObjectiveEdit != null) {
+                        scoreboardObjectiveEdit.setValue(name);
+                    }
+                }));
+            }).pos(centerX - totalWidth / 2 + editWidth + 2, y).size(20, rowHeight).build();
+            addRenderableWidget(selectScoreboardButton);
+            y += rowHeight + spacing;
+        }
+
         // 公式类型
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.formula"), font)); y += rowHeight;
@@ -1023,6 +1054,7 @@ public class EffectEditScreen extends Screen {
                 dyn.clipMinX = parseDouble(dynamicClipMinEdit);
                 dyn.clipMaxX = parseDouble(dynamicClipMaxEdit);
                 dyn.sourceAttributeId = dynamicSourceAttributeId;
+                dyn.scoreboardObjective = dynamicScoreboardObjective;
                 e = dyn;
             }
             case "tag" -> {

@@ -357,5 +357,12 @@
   "visual_set_edit.gui.condition.attribute": "Attribute",
   "visual_set_edit.gui.condition.type.attribute": "Attribute",
   "visual_set_edit.condition.comparator.NEQ": "≠",
-  "visual_set_edit.gui.condition.comparator.NEQ": "≠"
+  "visual_set_edit.gui.condition.comparator.NEQ": "≠",
+  "visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE": "Scoreboard Value",
+  "visual_set_edit.gui.scoreboard_register.title": "Scoreboard Objectives",
+  "visual_set_edit.gui.scoreboard_register.name": "Objective Name",
+  "visual_set_edit.gui.scoreboard_register.button": "Register Scoreboard",
+  "visual_set_edit.gui.select_scoreboard_objective": "Select Objective",
+  "visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective": "Scoreboard Objective",
+  "visual_set_edit.gui.add": "Add"
 }

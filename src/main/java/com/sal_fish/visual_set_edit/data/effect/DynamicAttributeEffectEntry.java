@@ -24,7 +24,8 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         KILL_COUNT_SINCE_EQUIP,
         L2H_CHUNK_DIFFICULTY,
         L2H_PLAYER_DIFFICULTY,
-        ATTRIBUTE_VALUE
+        ATTRIBUTE_VALUE,
+        SCOREBOARD_VALUE
     }
 
     public enum FormulaType {
@@ -42,6 +43,7 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
     @Expose public double clipMaxX = Double.NaN;
     @Expose public String uniqueId;
     @Expose public String sourceAttributeId = "";
+    @Expose public String scoreboardObjective = "";
 
     private transient Long startTick = null;
 
@@ -65,6 +67,9 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         }
         if (sourceAttributeId == null) {
             sourceAttributeId = "";
+        }
+        if (scoreboardObjective == null) {
+            scoreboardObjective = "";
         }
     }
 
@@ -167,6 +172,19 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
                         } else {
                             raw = instance.getValue();
                         }
+                    }
+                }
+            }
+            case SCOREBOARD_VALUE -> {
+                if (scoreboardObjective == null || scoreboardObjective.isEmpty()) {
+                    raw = 0;
+                } else {
+                    var scoreboard = entity.level().getScoreboard();
+                    var objective = scoreboard.getObjective(scoreboardObjective);
+                    if (objective == null) {
+                        raw = 0;
+                    } else {
+                        raw = scoreboard.getOrCreatePlayerScore(entity.getScoreboardName(), objective).getScore();
                     }
                 }
             }
@@ -280,6 +298,10 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             varName = sourceAttr != null
                     ? Component.translatable(sourceAttr.getDescriptionId()).getString()
                     : sourceAttributeId;
+        } else if (variableType == VariableType.SCOREBOARD_VALUE) {
+            varName = scoreboardObjective.isEmpty()
+                    ? Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE").getString()
+                    : scoreboardObjective;
         } else {
             varName = Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var." + variableType.name()).getString();
         }
