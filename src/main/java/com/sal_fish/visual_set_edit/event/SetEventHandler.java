@@ -125,6 +125,16 @@ public class SetEventHandler {
                     }
                 }
             }
+
+            for (var active : ActiveSetTracker.getActivePhases(killer)) {
+                for (EffectEntry entry : active.phase().effects) {
+                    if (entry instanceof CommandEffectEntry cmd && cmd.trigger == CommandEffectEntry.Trigger.ON_KILL_SPECIFIC) {
+                        if (cmd.targetFilter == null || cmd.targetFilter.isEmpty() || cmd.targetFilter.matches(dead)) {
+                            cmd.executeCommands(killer, cmd.commands, dead);
+                        }
+                    }
+                }
+            }
         }
 
         // 清理内存
@@ -450,11 +460,15 @@ public class SetEventHandler {
             manaPercent = is.getManaPercent(entity);
         }
 
+        List<String> entityTags = new ArrayList<>(entity.getTags());
+        Collections.sort(entityTags);
+
         return Objects.hash(health, food, armor, xpLevel, fallDistance,
                 submerged, sneaking, sprinting, swimming, onGround, onWall, flying, sleeping, riding,
                 dimension, biome, blockY, isRaining, isThundering, moonPhase,
                 skyLight, blockLight, temperature,
-                activeEffects, mana, manaPercent);
+                activeEffects, mana, manaPercent,
+                entityTags);
     }
 
     //效果维护

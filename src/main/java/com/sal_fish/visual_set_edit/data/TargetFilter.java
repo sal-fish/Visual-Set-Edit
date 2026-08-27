@@ -10,13 +10,19 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TargetFilter {
     @Expose public String blockId;       // "modid:block" 或 null
     @Expose public String blockTag;      // "modid:tag" 或 null
     @Expose public String entityTypeId;  // "modid:entity" 或 null
     @Expose public String entityTypeTag; // "modid:tag" 或 null
+    @Expose public List<String> entityTags = new ArrayList<>(); // 匹配实体自身tag
 
-    public TargetFilter() {}
+    public TargetFilter() {
+        this.entityTags = new ArrayList<>();
+    }
 
     // 判断方块是否符合条件
     public boolean matches(BlockState state) {
@@ -48,8 +54,20 @@ public class TargetFilter {
             if (tagRl == null) return false;
             TagKey<EntityType<?>> tagKey = TagKey.create(Registries.ENTITY_TYPE, tagRl);
             if (!entity.getType().is(tagKey)) return false;
-        } else {
-            return true;
+        }
+
+        // 实体自身 tag：任意一个匹配即可
+        if (entityTags != null && !entityTags.isEmpty()) {
+            boolean hasAny = false;
+            for (String tag : entityTags) {
+                if (entity.getTags().contains(tag)) {
+                    hasAny = true;
+                    break;
+                }
+            }
+            if (!hasAny) {
+                return false;
+            }
         }
         return true;
     }
@@ -59,6 +77,7 @@ public class TargetFilter {
         return (blockId == null || blockId.isEmpty())
                 && (blockTag == null || blockTag.isEmpty())
                 && (entityTypeId == null || entityTypeId.isEmpty())
-                && (entityTypeTag == null || entityTypeTag.isEmpty());
+                && (entityTypeTag == null || entityTypeTag.isEmpty())
+                && (entityTags == null || entityTags.isEmpty());
     }
 }

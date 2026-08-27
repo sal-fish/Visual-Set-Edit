@@ -4,11 +4,13 @@ import com.sal_fish.visual_set_edit.data.TargetFilter;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.function.Consumer;
 
 public class TargetFilterEditScreen extends Screen {
@@ -18,7 +20,8 @@ public class TargetFilterEditScreen extends Screen {
         BLOCK_ID,
         BLOCK_TAG,
         ENTITY_ID,
-        ENTITY_TAG
+        ENTITY_TAG,
+        ENTITY_TAGS
     }
 
     private final Screen parent;
@@ -26,8 +29,8 @@ public class TargetFilterEditScreen extends Screen {
     private TargetFilter filter;
     private FilterType currentType = FilterType.NONE;
 
-    private CycleButton<FilterType> typeButton;
     private Button selectButton;
+    private EditBox entityTagsEdit;
 
     public TargetFilterEditScreen(Screen parent, TargetFilter initialFilter, Consumer<TargetFilter> onSave) {
         super(Component.translatable("visual_set_edit.gui.target_filter.title"));
@@ -39,10 +42,13 @@ public class TargetFilterEditScreen extends Screen {
         else if (filter.blockTag != null) currentType = FilterType.BLOCK_TAG;
         else if (filter.entityTypeId != null) currentType = FilterType.ENTITY_ID;
         else if (filter.entityTypeTag != null) currentType = FilterType.ENTITY_TAG;
+        else if (filter.entityTags != null && !filter.entityTags.isEmpty()) currentType = FilterType.ENTITY_TAGS;
     }
 
     @Override
     protected void init() {
+        clearWidgets();  // 关键：清除旧控件，防止残留
+
         int centerX = width / 2;
         int totalWidth = 200;
         int rowHeight = 20;
@@ -53,7 +59,8 @@ public class TargetFilterEditScreen extends Screen {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.target_filter.type"), font));
         y += rowHeight;
-        typeButton = CycleButton.<FilterType>builder(type -> Component.translatable(
+        // 重建界面
+        CycleButton<FilterType> typeButton = CycleButton.<FilterType>builder(type -> Component.translatable(
                         "visual_set_edit.gui.target_filter.type." + type.name().toLowerCase()))
                 .withValues(FilterType.values())
                 .displayOnlyValue()
@@ -62,21 +69,41 @@ public class TargetFilterEditScreen extends Screen {
                         Component.translatable("visual_set_edit.gui.target_filter.type"),
                         (btn, val) -> {
                             currentType = val;
-                            // 切换类型时清空所有字段
                             filter = new TargetFilter();
-                            updateSelectButtonText();
+                            init(); // 重建界面
                         });
         addRenderableWidget(typeButton);
         y += rowHeight + spacing;
 
-        // 选择按钮（仅在非 NONE 时显示）
-        if (currentType != FilterType.NONE) {
+        // 根据类型显示不同控件
+        if (currentType == FilterType.ENTITY_TAGS) {
+            // 显示实体 Tag 列表输入框
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.target_filter.entity_tags"), font));
+            y += rowHeight;
+            entityTagsEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.target_filter.entity_tags"));
+            entityTagsEdit.setMaxLength(5201314);
+            if (filter.entityTags != null) {
+                entityTagsEdit.setValue(String.join(",", filter.entityTags));
+            } else {
+                entityTagsEdit.setValue("");
+            }
+            addRenderableWidget(entityTagsEdit);
+            y += rowHeight + spacing;
+            selectButton = null;
+        } else if (currentType != FilterType.NONE) {
+            // 显示选择按钮
             selectButton = Button.builder(
                     getSelectButtonText(),
                     btn -> openSelector()
             ).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
             addRenderableWidget(selectButton);
             y += rowHeight + spacing;
+            entityTagsEdit = null;
+        } else {
+            selectButton = null;
+            entityTagsEdit = null;
         }
 
         y += spacing;
@@ -87,9 +114,7 @@ public class TargetFilterEditScreen extends Screen {
                 btn -> {
                     filter = new TargetFilter();
                     currentType = FilterType.NONE;
-                    typeButton.setValue(FilterType.NONE);
-                    updateSelectButtonText();
-                    if (selectButton != null) selectButton.visible = false;
+                    init(); // 重建界面
                 }
         ).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build());
         y += rowHeight + spacing;
@@ -98,6 +123,22 @@ public class TargetFilterEditScreen extends Screen {
         addRenderableWidget(Button.builder(
                 Component.translatable("visual_set_edit.gui.save"),
                 btn -> {
+                    // 保存前解析实体 Tag 输入
+                    if (currentType == FilterType.ENTITY_TAGS && entityTagsEdit != null) {
+                        String tagsStr = entityTagsEdit.getValue().trim();
+                        if (tagsStr.isEmpty()) {
+                            filter.entityTags = new ArrayList<>();
+                        } else {
+                            String[] parts = tagsStr.split(",");
+                            filter.entityTags = new ArrayList<>();
+                            for (String p : parts) {
+                                String trimmed = p.trim();
+                                if (!trimmed.isEmpty()) {
+                                    filter.entityTags.add(trimmed);
+                                }
+                            }
+                        }
+                    }
                     onSave.accept(filter);
                     assert minecraft != null;
                     minecraft.setScreen(parent);
@@ -134,6 +175,7 @@ public class TargetFilterEditScreen extends Screen {
                 filter.entityTypeTag = tagId;
                 updateSelectButtonText();
             }));
+            default -> {}
         }
     }
 

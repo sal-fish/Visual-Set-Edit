@@ -97,7 +97,6 @@ public class EffectEditScreen extends Screen {
     private final List<EditBox> coeffEdits = new ArrayList<>();
     private String dynamicScoreboardObjective = "";
     private EditBox scoreboardObjectiveEdit;
-    private Button selectScoreboardButton;
 
     // Custom
     private String customDisplayText = "";
@@ -491,7 +490,8 @@ public class EffectEditScreen extends Screen {
         if (commandTrigger == CommandEffectEntry.Trigger.ON_INTERACT_BLOCK ||
                 commandTrigger == CommandEffectEntry.Trigger.ON_INTERACT_ENTITY ||
                 commandTrigger == CommandEffectEntry.Trigger.ON_PLACE_BLOCK ||
-                commandTrigger == CommandEffectEntry.Trigger.ON_BREAK_BLOCK) {
+                commandTrigger == CommandEffectEntry.Trigger.ON_BREAK_BLOCK ||
+                commandTrigger == CommandEffectEntry.Trigger.ON_KILL_SPECIFIC) {
 
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.effect.command.target_filter"), font));
@@ -739,7 +739,7 @@ public class EffectEditScreen extends Screen {
             scoreboardObjectiveEdit.setResponder(s -> dynamicScoreboardObjective = s);
             addRenderableWidget(scoreboardObjectiveEdit);
 
-            selectScoreboardButton = Button.builder(Component.literal("📦"), btn -> {
+            Button selectScoreboardButton = Button.builder(Component.literal("📦"), btn -> {
                 assert minecraft != null;
                 minecraft.setScreen(new ScoreboardObjectiveListScreen(this, name -> {
                     dynamicScoreboardObjective = name;

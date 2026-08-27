@@ -31,7 +31,8 @@ public class CommandEffectEntry extends EffectEntry {
         ON_INTERACT_ENTITY,  // 右键点击实体
         ON_PLACE_BLOCK,      // 放置方块
         ON_BREAK_BLOCK,      // 破坏方块
-        ON_WAKE_UP           // 醒来
+        ON_WAKE_UP,       // 醒来
+        ON_KILL_SPECIFIC  //击杀指定生物
     }
 
     @Expose public List<String> activateCommands;
