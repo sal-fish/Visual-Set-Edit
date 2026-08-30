@@ -63,7 +63,7 @@ public class ConditionListScreen extends Screen {
 
         // 已存在条件列表
         for (Condition cond : phase.additionalConditions) {
-            addRenderableWidget(Button.builder(Component.literal(cond.getDisplayText()), btn -> {
+            addRenderableWidget(Button.builder(Component.literal(cond.getFinalDisplayText()), btn -> {
                 assert minecraft != null;
                 minecraft.setScreen(new ConditionEditScreen(edited -> {
                     int idx = phase.additionalConditions.indexOf(cond);

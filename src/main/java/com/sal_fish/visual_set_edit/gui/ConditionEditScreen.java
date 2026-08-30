@@ -54,6 +54,9 @@ public class ConditionEditScreen extends Screen {
     private Button invSlotButton, invItemButton;
     private EditBox invTagEdit;
 
+    private String conditionCustomDisplayText = "";
+    private EditBox conditionCustomDisplayTextEdit;
+
     private final List<Condition> tempChildren = new ArrayList<>();
 
     public ConditionEditScreen(Consumer<Condition> onSave, Screen returnTo) {
@@ -72,6 +75,7 @@ public class ConditionEditScreen extends Screen {
 
     private void loadFromExisting(Condition c) {
         condType = c.type;
+        conditionCustomDisplayText = c.customDisplayText != null ? c.customDisplayText : "";
         if (c instanceof EnvironmentCondition env) {
             field = env.field;
             comparator = env.comparator;
@@ -313,6 +317,7 @@ public class ConditionEditScreen extends Screen {
         }
         y += 6;
 
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
@@ -402,6 +407,7 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(invDurMaxEdit);
         y += rowHeight + spacing + 6;
 
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
@@ -449,6 +455,7 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight + spacing;
         }
         y += 6;
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
     }
     //属性条件
@@ -494,6 +501,7 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(attrValueEdit);
         y += rowHeight + spacing;
 
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
@@ -523,7 +531,7 @@ public class ConditionEditScreen extends Screen {
         for (int i = 0; i < tempChildren.size(); i++) {
             Condition child = tempChildren.get(i);
             int index = i;
-            String text = child.getDisplayText();
+            String text = child.getFinalDisplayText();
             addRenderableWidget(Button.builder(Component.literal(text), btn -> {
                 assert minecraft != null;
                 minecraft.setScreen(new ConditionEditScreen(edited -> {
@@ -550,7 +558,23 @@ public class ConditionEditScreen extends Screen {
                 }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build());
         y += rowHeight + 6;
 
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
+    }
+
+    //自定义显示文本（与效果系统一致，优先于自动生成的描述）
+    private int buildCustomDisplayField(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.custom_display_text"), font));
+        y += rowHeight;
+        conditionCustomDisplayTextEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.custom_display_text"));
+        conditionCustomDisplayTextEdit.setMaxLength(256);
+        conditionCustomDisplayTextEdit.setValue(conditionCustomDisplayText);
+        conditionCustomDisplayTextEdit.setResponder(s -> conditionCustomDisplayText = s);
+        addRenderableWidget(conditionCustomDisplayTextEdit);
+        y += rowHeight + spacing;
+        return y;
     }
 
     private void saveButton(int centerX, int y, int totalWidth, int rowHeight) {
@@ -568,7 +592,7 @@ public class ConditionEditScreen extends Screen {
     }
 
     private Condition createCondition() {
-        return switch (condType) {
+        return applyCustomDisplay(switch (condType) {
             case "environment" -> {
                 EnvironmentCondition e = new EnvironmentCondition();
                 e.field = field;
@@ -617,7 +641,16 @@ public class ConditionEditScreen extends Screen {
                 yield cc;
             }
             default -> null;
-        };
+        });
+    }
+
+    private Condition applyCustomDisplay(Condition c) {
+        if (c != null) {
+            c.customDisplayText = conditionCustomDisplayTextEdit != null
+                    ? conditionCustomDisplayTextEdit.getValue()
+                    : conditionCustomDisplayText;
+        }
+        return c;
     }
 
     private List<String> getFieldOptions() {

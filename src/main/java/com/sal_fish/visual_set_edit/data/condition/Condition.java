@@ -5,7 +5,13 @@ import net.minecraft.world.entity.LivingEntity;
 
 public abstract class Condition {
     @Expose public String type;
+    @Expose public String customDisplayText = "";
+
     public abstract boolean test(LivingEntity entity);
     public abstract String getDisplayText();
     public boolean requiresPlayer() { return false; }
+
+    public String getFinalDisplayText() {
+        return customDisplayText != null && !customDisplayText.isEmpty() ? customDisplayText : getDisplayText();
+    }
 }

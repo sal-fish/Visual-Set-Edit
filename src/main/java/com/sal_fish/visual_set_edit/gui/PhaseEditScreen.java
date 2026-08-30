@@ -8,6 +8,7 @@ import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -338,6 +339,19 @@ public class PhaseEditScreen extends Screen {
                     minecraft.setScreen(new ConditionListScreen(phase, preset, this));
                 }
         ).pos(leftX + 85, bottomY).size(80, rowHeight).build());
+
+        // 是否在 tooltip 显示此阶段（玩家可自行隐藏该阶段的信息）
+        bottomY += rowHeight + 4;
+        addRenderableWidget(CycleButton.<Boolean>builder(b ->
+                        Component.translatable("visual_set_edit.gui.phase.show_tooltip.state",
+                                b ? Component.translatable("visual_set_edit.gui.tooltip.on").getString()
+                                        : Component.translatable("visual_set_edit.gui.tooltip.off").getString()))
+                .withValues(true, false)
+                .displayOnlyValue()
+                .withInitialValue(phase.showTooltip)
+                .create(leftX, bottomY, controlWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.phase.show_tooltip"),
+                        (btn, val) -> phase.showTooltip = val));
 
         // 返回按钮
         bottomY += rowHeight + 4;

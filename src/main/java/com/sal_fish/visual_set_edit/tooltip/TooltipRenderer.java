@@ -69,6 +69,7 @@ public class TooltipRenderer {
             // Alt：槽位条件
             if (altDown) {
                 for (SetPhase phase : preset.phases) {
+                    if (!phase.showTooltip) continue;
                     event.getToolTip().add(Component.translatable(
                             "visual_set_edit.tooltip.phase_name",
                             phase.fallbackName
@@ -84,13 +85,14 @@ public class TooltipRenderer {
                         String desc = slotName + ": " + getConditionDescription(cond);
                         boolean matched = isSlotMatched(player, cond);
                         ChatFormatting color = matched ? ChatFormatting.GREEN : ChatFormatting.GRAY;
-                        event.getToolTip().add(Component.literal("  " + desc).withStyle(color));
+                        event.getToolTip().add(parseFormattedText("  " + desc, Style.EMPTY.withColor(color)));
                     }
                 }
             }
             // Shift 或 Ctrl：显示效果（Ctrl 额外显示条件）
             else if (shiftDown || ctrlDown) {
                 for (SetPhase phase : preset.phases) {
+                    if (!phase.showTooltip) continue;
                     int matched = countMatched(player, phase);
                     boolean active = matched >= phase.requiredCount;
                     ChatFormatting color = active ? ChatFormatting.GREEN : ChatFormatting.GRAY;
@@ -105,8 +107,8 @@ public class TooltipRenderer {
                     for (EffectEntry effect : phase.effects) {
                         TextColor effectColor = effect.getFinalColor();
                         String pointer = effect.showPointer ? "   ▶ " : "   ";
-                        event.getToolTip().add(Component.literal(pointer + effect.getFinalDisplayText())
-                                .withStyle(Style.EMPTY.withColor(effectColor)));
+                        event.getToolTip().add(parseFormattedText(pointer + effect.getFinalDisplayText(),
+                                Style.EMPTY.withColor(effectColor)));
                     }
 
                     // 附加条件（Ctrl 时显示）
@@ -114,8 +116,11 @@ public class TooltipRenderer {
                         event.getToolTip().add(Component.translatable("visual_set_edit.tooltip.conditions_header")
                                 .withStyle(ChatFormatting.DARK_AQUA));
                         for (Condition cond : phase.additionalConditions) {
-                            event.getToolTip().add(Component.literal("   ☑ " + cond.getDisplayText())
-                                    .withStyle(ChatFormatting.AQUA));
+                            boolean condMatched = player != null && cond.test(player);
+                            ChatFormatting condColor = condMatched ? ChatFormatting.GREEN : ChatFormatting.GRAY;
+                            String condIcon = condMatched ? "☑" : "☐";
+                            event.getToolTip().add(parseFormattedText("   " + condIcon + " " + cond.getFinalDisplayText(),
+                                    Style.EMPTY.withColor(condColor)));
                         }
                     }
                 }
@@ -128,8 +133,14 @@ public class TooltipRenderer {
     }
 
     private MutableComponent parseFormattedText(String text) {
-        MutableComponent result = Component.literal("");
-        Style currentStyle = Style.EMPTY;
+        return parseFormattedText(text, Style.EMPTY);
+    }
+
+    // baseStyle 作为兜底样式（如效果的自定义颜色），文本内 § 码可覆盖；§r 重置回 baseStyle
+    private MutableComponent parseFormattedText(String text, Style baseStyle) {
+        text = decodeUnicodeEscapes(text);
+        MutableComponent result = Component.literal("").withStyle(baseStyle);
+        Style currentStyle = baseStyle;
         StringBuilder currentText = new StringBuilder();
 
         for (int i = 0; i < text.length(); i++) {
@@ -170,7 +181,7 @@ public class TooltipRenderer {
                     ChatFormatting format = ChatFormatting.getByCode(code);
                     if (format != null) {
                         switch (format) {
-                            case RESET -> currentStyle = Style.EMPTY;
+                            case RESET -> currentStyle = baseStyle;
                             case BOLD -> currentStyle = currentStyle.withBold(true);
                             case ITALIC -> currentStyle = currentStyle.withItalic(true);
                             case UNDERLINE -> currentStyle = currentStyle.withUnderlined(true);
@@ -182,7 +193,7 @@ public class TooltipRenderer {
                             }
                         }
                     } else if (code == 'r') {
-                        currentStyle = Style.EMPTY;
+                        currentStyle = baseStyle;
                     } else {
                         currentText.append(c);
                     }
@@ -196,6 +207,23 @@ public class TooltipRenderer {
             result.append(Component.literal(currentText.toString()).withStyle(currentStyle));
         }
         return result;
+    }
+
+    private static String decodeUnicodeEscapes(String text) {
+        if (text == null || !text.contains("\\u")) return text;
+        StringBuilder sb = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\' && i + 5 < text.length() && text.charAt(i + 1) == 'u'
+                    && isHexDigit(text.charAt(i + 2)) && isHexDigit(text.charAt(i + 3))
+                    && isHexDigit(text.charAt(i + 4)) && isHexDigit(text.charAt(i + 5))) {
+                sb.append((char) Integer.parseInt(text.substring(i + 2, i + 6), 16));
+                i += 5;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private static boolean isHexDigit(char c) {

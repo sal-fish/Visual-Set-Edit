@@ -40,6 +40,9 @@ public class EffectEditScreen extends Screen {
     private ResourceLocation selectedAttribute;
     private double amount;
     private AttributeModifier.Operation attrOperation = AttributeModifier.Operation.ADDITION;
+    private int attrDurationSeconds = -1;  // -1 = 常驻
+    private int attrCooldownSeconds = 0;
+    private EditBox attrDurationEdit, attrCooldownEdit;
 
     private String dynamicSourceAttributeId = "";
     private Button selectSourceAttributeButton;
@@ -140,6 +143,7 @@ public class EffectEditScreen extends Screen {
         } else if (existing instanceof AttributeEffectEntry attr) {
             effectType = "attribute"; selectedAttribute = ResourceLocation.tryParse(attr.attributeId);
             amount = attr.amount; attrOperation = attr.operation;
+            attrDurationSeconds = attr.durationSeconds; attrCooldownSeconds = attr.cooldownSeconds;
         } else if (existing instanceof AbilityEffectEntry ab) {
             effectType = "ability"; abilityId = ab.abilityId;
         } else if (existing instanceof CommandEffectEntry cmd) {
@@ -399,6 +403,30 @@ public class EffectEditScreen extends Screen {
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                         Component.translatable("visual_set_edit.gui.effect.attribute.operation"), (btn, val) -> attrOperation = val);
         addRenderableWidget(opButton); y += rowHeight + spacing;
+
+        // 限时属性：生效时长（秒，-1 = 常驻）
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.attribute.duration"), font)); y += rowHeight;
+        attrDurationEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.attribute.duration"));
+        attrDurationEdit.setMaxLength(10);
+        attrDurationEdit.setValue(String.valueOf(attrDurationSeconds));
+        attrDurationEdit.setResponder(s -> {
+            try { attrDurationSeconds = Integer.parseInt(s); } catch (Exception ignored) {}
+        });
+        addRenderableWidget(attrDurationEdit); y += rowHeight + spacing;
+
+        // 限时属性：冷却（秒，0 = 无冷却）
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.attribute.cooldown"), font)); y += rowHeight;
+        attrCooldownEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.attribute.cooldown"));
+        attrCooldownEdit.setMaxLength(10);
+        attrCooldownEdit.setValue(String.valueOf(attrCooldownSeconds));
+        attrCooldownEdit.setResponder(s -> {
+            try { attrCooldownSeconds = Integer.parseInt(s); } catch (Exception ignored) {}
+        });
+        addRenderableWidget(attrCooldownEdit); y += rowHeight + spacing;
 
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -997,7 +1025,10 @@ public class EffectEditScreen extends Screen {
                 AttributeEffectEntry attr = new AttributeEffectEntry();
                 attr.attributeId = selectedAttribute != null ? selectedAttribute.toString() : "";
                 try { attr.amount = Double.parseDouble(amountEdit.getValue()); } catch (Exception ignored) {}
-                attr.operation = attrOperation; e = attr;
+                attr.operation = attrOperation;
+                attr.durationSeconds = attrDurationEdit != null ? attrDurationSeconds : -1;
+                attr.cooldownSeconds = attrCooldownEdit != null ? Math.max(0, attrCooldownSeconds) : 0;
+                e = attr;
             }
             case "ability" -> { AbilityEffectEntry ab = new AbilityEffectEntry(); ab.abilityId = abilityId; e = ab; }
             case "command" -> {

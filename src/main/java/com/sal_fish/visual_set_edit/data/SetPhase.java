@@ -13,6 +13,7 @@ public class SetPhase {
     @Expose public List<SlotCondition> slotConditions = new ArrayList<>();
     @Expose public List<EffectEntry> effects = new ArrayList<>();
     @Expose public List<Condition> additionalConditions = new ArrayList<>();
+    @Expose public boolean showTooltip = true; // 该阶段是否在套装 tooltip 中显示
 
     public void initEffects() {
         for (EffectEntry effect : effects) {

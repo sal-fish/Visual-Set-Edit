@@ -21,6 +21,16 @@ public class PresetEditScreen extends Screen {
     private EditBox nameEdit;
     private int selectedPhase = -1;
     private boolean showTooltip;
+    private int phaseScrollOffset = 0;
+
+    private static final int PHASE_LIST_TOP = 190;
+    private static final int PHASE_LIST_ROW_HEIGHT = 12;
+    private static final int PHASE_LIST_X_START = 10;
+    private static final int PHASE_LIST_X_END = 300;
+
+    private int getMaxVisiblePhases() {
+        return Math.max(1, (height - 30 - PHASE_LIST_TOP) / PHASE_LIST_ROW_HEIGHT);
+    }
 
     public PresetEditScreen(Preset preset, List<Preset> allPresets, Screen parent) {
         super(Component.translatable("visual_set_edit.gui.preset_edit.title", preset.fallbackName));
@@ -107,22 +117,48 @@ public class PresetEditScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partial);
         graphics.drawCenteredString(font, Component.translatable("visual_set_edit.gui.preset_edit.title", preset.fallbackName), width / 2, 10, 0xFFFFFF);
 
-        int y = 190;
-        for (int i = 0; i < preset.phases.size(); i++) {
+        int maxVisible = getMaxVisiblePhases();
+        int maxOffset = Math.max(0, preset.phases.size() - maxVisible);
+        if (phaseScrollOffset > maxOffset) phaseScrollOffset = maxOffset;
+
+        int y = PHASE_LIST_TOP;
+        int end = Math.min(preset.phases.size(), phaseScrollOffset + maxVisible);
+        for (int i = phaseScrollOffset; i < end; i++) {
             SetPhase phase = preset.phases.get(i);
             int color = i == selectedPhase ? 0xFFAA00 : 0xAAAAAA;
-            graphics.drawString(font, phase.fallbackName + " (" + phase.requiredCount + ")", 10, y, color);
-            y += 12;
-            if (y > height - 30) break;
+            graphics.drawString(font, phase.fallbackName + " (" + phase.requiredCount + ")", PHASE_LIST_X_START, y, color);
+            y += PHASE_LIST_ROW_HEIGHT;
+        }
+
+        // 滚动条
+        if (preset.phases.size() > maxVisible) {
+            int listHeight = maxVisible * PHASE_LIST_ROW_HEIGHT;
+            int scrollBarX = width - 5;
+            int scrollBarHeight = Math.max(4, (int) ((float) maxVisible / preset.phases.size() * listHeight));
+            int scrollBarY = PHASE_LIST_TOP + (int) ((float) phaseScrollOffset / maxOffset * (listHeight - scrollBarHeight));
+            graphics.fill(scrollBarX, PHASE_LIST_TOP, scrollBarX + 3, PHASE_LIST_TOP + listHeight, 0xFFAAAAAA);
+            graphics.fill(scrollBarX, scrollBarY, scrollBarX + 3, scrollBarY + scrollBarHeight, 0xFFFFFFFF);
         }
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        if (mouseY >= PHASE_LIST_TOP && mouseY <= height - 30) {
+            int maxOffset = Math.max(0, preset.phases.size() - getMaxVisiblePhases());
+            int newOffset = phaseScrollOffset - (int) Math.signum(scrollDelta);
+            phaseScrollOffset = Math.max(0, Math.min(maxOffset, newOffset));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollDelta);
+    }
+
+    @Override
     public boolean mouseClicked(double x, double y, int button) {
-        int yStart = 190;
-        for (int i = 0; i < preset.phases.size(); i++) {
-            if (x >= 10 && x <= 300 && y >= yStart + i * 12 && y < yStart + i * 12 + 10) {
-                selectedPhase = i;
+        if (x >= PHASE_LIST_X_START && x <= PHASE_LIST_X_END
+                && y >= PHASE_LIST_TOP && y < PHASE_LIST_TOP + getMaxVisiblePhases() * PHASE_LIST_ROW_HEIGHT) {
+            int index = phaseScrollOffset + (int) ((y - PHASE_LIST_TOP) / PHASE_LIST_ROW_HEIGHT);
+            if (index >= 0 && index < preset.phases.size()) {
+                selectedPhase = index;
                 return true;
             }
         }

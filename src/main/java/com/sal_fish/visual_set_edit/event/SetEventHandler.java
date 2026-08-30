@@ -33,7 +33,6 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class SetEventHandler {
 
@@ -224,6 +223,7 @@ public class SetEventHandler {
             processTimedPotionEffects(entity);
             processRepeatingCommands(entity);
             processDynamicAttributes(entity);
+            processTimedAttributes(entity);
             IntegrationManager.tickL2Traits(entity);
         }
     }
@@ -554,6 +554,17 @@ public class SetEventHandler {
         }
     }
 
+    //限时属性周期（生效 N 秒 -> 冷却 -> 重新触发）
+    private void processTimedAttributes(LivingEntity entity) {
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry attr) {
+                    attr.updateTimed(entity);
+                }
+            }
+        }
+    }
+
     private void ensureAllPermanentEffectsApplied(LivingEntity entity) {
         for (var active : ActiveSetTracker.getActivePhases(entity)) {
             for (EffectEntry entry : active.phase().effects) {
@@ -577,6 +588,7 @@ public class SetEventHandler {
         for (var active : ActiveSetTracker.getActivePhases(entity)) {
             for (EffectEntry entry : active.phase().effects) {
                 if (entry instanceof com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry attr) {
+                    if (attr.durationSeconds > 0) continue; // 限时属性由 processTimedAttributes 管理，避免到期后立即补回
                     attr.ensureUniqueId();
                     net.minecraft.world.entity.ai.attributes.Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(
                             new ResourceLocation(attr.attributeId));
