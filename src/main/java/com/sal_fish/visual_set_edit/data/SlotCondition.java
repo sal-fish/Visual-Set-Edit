@@ -11,8 +11,15 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SlotCondition {
+    private static final Map<String, CompoundTag> EXACT_NBT_CACHE = new ConcurrentHashMap<>();
+
+    public static void clearNbtCache() {
+        EXACT_NBT_CACHE.clear();
+    }
+
     @Expose public String slot;
     @Expose public String itemId;      // "modid:item" or null for any
     @Expose public String tagId;       // "modid:tag"   or null for any
@@ -62,12 +69,12 @@ public class SlotCondition {
             if (exactNbt != null && !exactNbt.isEmpty()) {
                 CompoundTag stackTag = stack.getTag();
                 if (stackTag == null) return false;
-                try {
-                    CompoundTag savedTag = net.minecraft.nbt.TagParser.parseTag(exactNbt);
+                CompoundTag savedTag = getParsedExactNbt(exactNbt);
+                if (savedTag != null) {
                     return savedTag.equals(stackTag);
-                } catch (Exception e) {
-                    return stackTag.toString().equals(exactNbt);
                 }
+                // 解析失败回退：字符串直接比较
+                return stackTag.toString().equals(exactNbt);
             }
             CompoundTag stackTag = stack.getTag();
             CompoundTag comp = stack.getItem().getDefaultInstance().getTag();
@@ -84,5 +91,17 @@ public class SlotCondition {
             }
         }
         return true;
+    }
+
+    private static CompoundTag getParsedExactNbt(String nbt) {
+        if (EXACT_NBT_CACHE.containsKey(nbt)) return EXACT_NBT_CACHE.get(nbt);
+        try {
+            CompoundTag parsed = net.minecraft.nbt.TagParser.parseTag(nbt);
+            EXACT_NBT_CACHE.put(nbt, parsed);
+            return parsed;
+        } catch (Exception e) {
+            EXACT_NBT_CACHE.put(nbt, null);
+            return null;
+        }
     }
 }

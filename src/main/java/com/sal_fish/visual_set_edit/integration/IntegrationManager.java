@@ -95,8 +95,15 @@ public class IntegrationManager {
         if (isIronSpellsLoaded()) {
             Method init = findMethod("spellCompatInit",
                     "com.sal_fish.visual_set_edit.integration.SpellCompatHandler", "init");
-            if (init == null) return;
-            try { init.invoke(null); } catch (Exception ignored) {}
+            if (init != null) {
+                try { init.invoke(null); } catch (Exception ignored) {}
+            }
+            // 套装法术注入铁魔法轮盘
+            Method wheelInit = findMethod("spellWheelInit",
+                    "com.sal_fish.visual_set_edit.integration.SpellWheelCompatHandler", "init");
+            if (wheelInit != null) {
+                try { wheelInit.invoke(null); } catch (Exception ignored) {}
+            }
         }
     }
 

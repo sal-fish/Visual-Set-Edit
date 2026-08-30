@@ -99,6 +99,7 @@ public class PresetManager {
 
         presets = loaded;
         for (Preset p : presets) p.initAfterLoad();
+        SlotCondition.clearNbtCache();
         rebuildIndex();
         VisualSetEdit.LOGGER.info("VSE loaded {} presets.", presets.size());
     }
@@ -128,6 +129,7 @@ public class PresetManager {
 
             presets = new ArrayList<>(newPresets);
             for (Preset p : presets) p.initAfterLoad();
+            SlotCondition.clearNbtCache();
             rebuildIndex();
             VisualSetEdit.LOGGER.info("VSE presets saved.");
         } catch (IOException e) {
@@ -138,6 +140,7 @@ public class PresetManager {
     public static void clientCachePresets(List<Preset> list) {
         clientPresets = list != null ? list : new ArrayList<>();
         for (Preset p : clientPresets) p.initAfterLoad();
+        SlotCondition.clearNbtCache();
         rebuildIndex();
     }
 

@@ -251,7 +251,17 @@ public class TooltipRenderer {
         }
     }
 
-    private boolean isSlotMatched(Player player, SlotCondition cond) {
+    public static boolean isPhaseActiveClient(Player player, SetPhase phase) {
+        if (player == null) return false;
+        int matched = countMatched(player, phase);
+        if (matched < phase.requiredCount) return false;
+        for (Condition cond : phase.additionalConditions) {
+            if (!cond.test(player)) return false;
+        }
+        return true;
+    }
+
+    public static boolean isSlotMatched(Player player, SlotCondition cond) {
         if (player == null) return false;
         if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
             if (!IntegrationManager.isCuriosLoaded()) return false;
@@ -275,7 +285,7 @@ public class TooltipRenderer {
         }
     }
 
-    private ItemStack getStackForSlot(Player player, String slot) {
+    public static ItemStack getStackForSlot(Player player, String slot) {
         return switch (slot) {
             case "HEAD" -> player.getInventory().getArmor(3);
             case "CHEST" -> player.getInventory().getArmor(2);
@@ -287,7 +297,7 @@ public class TooltipRenderer {
         };
     }
 
-    private int countMatched(Player player, SetPhase phase) {
+    public static int countMatched(Player player, SetPhase phase) {
         if (player == null) return 0;
         int c = 0;
         Map<String, ItemStack> eq = new HashMap<>();

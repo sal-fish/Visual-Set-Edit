@@ -33,13 +33,6 @@ public class VsePacketHandler {
                 C2SUpdatePresetPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
 
-        // 客户端 → 服务端
-        INSTANCE.registerMessage(id++, C2SCastSpellPacket.class,
-                C2SCastSpellPacket::encode,
-                C2SCastSpellPacket::decode,
-                C2SCastSpellPacket::handle,
-                Optional.of(NetworkDirection.PLAY_TO_SERVER));
-
         // 服务端 → 客户端
         INSTANCE.registerMessage(id++, S2COpenGuiPacket.class,
                 S2COpenGuiPacket::encode,
