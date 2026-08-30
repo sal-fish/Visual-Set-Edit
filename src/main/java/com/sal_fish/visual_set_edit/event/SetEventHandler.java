@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.event;
 
+import com.sal_fish.visual_set_edit.VisualSetEdit;
 import com.sal_fish.visual_set_edit.config.PresetManager;
 import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import com.sal_fish.visual_set_edit.data.Preset;
@@ -11,6 +12,8 @@ import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.network.S2CSyncPresetsPacket;
 import com.sal_fish.visual_set_edit.network.VsePacketHandler;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -54,6 +57,25 @@ public class SetEventHandler {
     }
     public static Float getLastHurtAmount(LivingEntity entity) {
         return LAST_HURT_AMOUNT.get(entity.getUUID());
+    }
+
+    public static void forceReloadAllEntities(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getEntities().getAll()) {
+                if (!(entity instanceof LivingEntity living) || !living.isAlive()) continue;
+                for (var active : ActiveSetTracker.getActivePhases(living)) {
+                    for (EffectEntry entry : active.phase().effects) {
+                        try {
+                            entry.remove(living);
+                        } catch (Exception e) {
+                            VisualSetEdit.LOGGER.error("[VSE] Failed to remove effect during reload for {}", living, e);
+                        }
+                    }
+                }
+                SNAPSHOT_HASH_CACHE.remove(living.getUUID());
+            }
+        }
+        ActiveSetTracker.clearAll();
     }
 
     //事件处理

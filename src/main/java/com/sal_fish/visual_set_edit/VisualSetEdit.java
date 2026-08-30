@@ -4,7 +4,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
 import com.sal_fish.visual_set_edit.config.PresetManager;
 import com.sal_fish.visual_set_edit.config.ScoreboardObjectiveManager;
-import com.sal_fish.visual_set_edit.event.ActiveSetTracker;
 import com.sal_fish.visual_set_edit.event.SetEventHandler;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.network.S2COpenGuiPacket;
@@ -67,13 +66,10 @@ public class VisualSetEdit {
                     if (IntegrationManager.isCuriosLoaded()) {
                         CuriosItemMappingManager.load();
                     }
-                    ActiveSetTracker.clearAll();
 
                     MinecraftServer server = ctx.getSource().getServer();
                     ScoreboardObjectiveManager.registerObjectives(server);
-                    for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        SetEventHandler.forceReevaluate(player);
-                    }
+                    SetEventHandler.forceReloadAllEntities(server);
 
                     ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.translatable("visual_set_edit.command.reload.success"), true);
                     return 1;
