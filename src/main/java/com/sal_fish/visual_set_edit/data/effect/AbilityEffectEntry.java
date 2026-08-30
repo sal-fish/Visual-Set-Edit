@@ -5,8 +5,18 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class AbilityEffectEntry extends EffectEntry {
     @Expose public String abilityId;
+
+    private static final Map<UUID, Integer> FLIGHT_COUNTER = new ConcurrentHashMap<>();
+
+    public static void clearFlightCounter(UUID uuid) {
+        FLIGHT_COUNTER.remove(uuid);
+    }
 
     public AbilityEffectEntry() { this.type = "ability"; }
 
@@ -20,7 +30,8 @@ public class AbilityEffectEntry extends EffectEntry {
     private void applyToPlayer(Player player) {
         switch (abilityId) {
             case "FLIGHT":
-                if (!player.getAbilities().mayfly) {
+                int count = FLIGHT_COUNTER.merge(player.getUUID(), 1, Integer::sum);
+                if (count == 1 && !player.getAbilities().mayfly) {
                     player.getAbilities().mayfly = true;
                     player.onUpdateAbilities();
                 }
@@ -41,10 +52,14 @@ public class AbilityEffectEntry extends EffectEntry {
     private void removeFromPlayer(Player player) {
         switch (abilityId) {
             case "FLIGHT":
-                if (!player.isCreative() && !player.isSpectator()) {
-                    player.getAbilities().mayfly = false;
-                    player.getAbilities().flying = false;
-                    player.onUpdateAbilities();
+                int count = FLIGHT_COUNTER.merge(player.getUUID(), -1, Integer::sum);
+                if (count <= 0) {
+                    FLIGHT_COUNTER.remove(player.getUUID());
+                    if (!player.isCreative() && !player.isSpectator()) {
+                        player.getAbilities().mayfly = false;
+                        player.getAbilities().flying = false;
+                        player.onUpdateAbilities();
+                    }
                 }
                 break;
             case "FALL_IMMUNITY":

@@ -86,6 +86,9 @@ public class SetEventHandler {
                     PacketDistributor.PLAYER.with(() -> player),
                     new S2CSyncPresetsPacket(PresetManager.getPresets())
             );
+            // 清理上次会话残留的摔落免疫标记与飞行计数（若套装仍激活，recreateEffects 会重新写入）
+            player.getPersistentData().remove("vse_fallimmune");
+            AbilityEffectEntry.clearFlightCounter(player.getUUID());
             recreateEffects(player);
             SNAPSHOT_HASH_CACHE.remove(player.getUUID());
         }
@@ -93,6 +96,7 @@ public class SetEventHandler {
 
     @SubscribeEvent
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        AbilityEffectEntry.clearFlightCounter(event.getEntity().getUUID());
         clearSnapshotCache(event.getEntity().getUUID());
     }
 
@@ -107,6 +111,9 @@ public class SetEventHandler {
             ServerPlayer oldPlayer = (ServerPlayer) event.getOriginal();
             DynamicAttributeEffectEntry.transferDynamicData(oldPlayer, newPlayer);
             IntegrationManager.cleanupCuriosSlotsOnClone(oldPlayer, newPlayer);
+            // 克隆后清理残留（persistentData 从旧玩家复制而来）
+            newPlayer.getPersistentData().remove("vse_fallimmune");
+            AbilityEffectEntry.clearFlightCounter(newPlayer.getUUID());
             recreateEffects(newPlayer);
             SNAPSHOT_HASH_CACHE.remove(newPlayer.getUUID());
         }
