@@ -11,6 +11,16 @@ public class CompositeCondition extends Condition {
     public CompositeCondition() { this.type = "composite"; }
 
     @Override
+    public boolean requiresPlayer() {
+        if (children == null || children.isEmpty()) return false;
+        return switch (op) {
+            case "AND" -> children.stream().anyMatch(Condition::requiresPlayer);
+            case "OR" -> children.stream().allMatch(Condition::requiresPlayer);
+            default -> false;
+        };
+    }
+
+    @Override
     public boolean test(LivingEntity entity) {
         if (children == null || children.isEmpty()) return true;
         return switch (op) {

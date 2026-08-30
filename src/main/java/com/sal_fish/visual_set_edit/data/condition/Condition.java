@@ -7,4 +7,5 @@ public abstract class Condition {
     @Expose public String type;
     public abstract boolean test(LivingEntity entity);
     public abstract String getDisplayText();
+    public boolean requiresPlayer() { return false; }
 }

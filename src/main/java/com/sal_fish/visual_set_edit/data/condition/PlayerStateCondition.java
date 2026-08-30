@@ -15,6 +15,11 @@ public class PlayerStateCondition extends Condition {
     public PlayerStateCondition() { this.type = "player_state"; }
 
     @Override
+    public boolean requiresPlayer() {
+        return "FOOD".equals(field) || "XP_LEVEL".equals(field) || "FLYING".equals(field);
+    }
+
+    @Override
     public boolean test(LivingEntity entity) {
         try {
             return switch (field) {

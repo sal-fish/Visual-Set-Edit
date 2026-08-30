@@ -41,6 +41,7 @@ public class PresetManager {
 
     private static final Map<String, Set<String>> ITEM_TO_PRESETS = new HashMap<>();
     public static final Set<String> ZERO_COUNT_PRESET_IDS = new HashSet<>();
+    public static final Set<String> ZERO_COUNT_PRESET_IDS_NON_PLAYER = new HashSet<>();
     private static final Map<String, Preset> PRESET_BY_ID = new HashMap<>();
     public static final Set<String> TIME_SENSITIVE_PHASE_IDS = new HashSet<>();
 
@@ -144,6 +145,7 @@ public class PresetManager {
     public static void rebuildIndex() {
         ITEM_TO_PRESETS.clear();
         ZERO_COUNT_PRESET_IDS.clear();
+        ZERO_COUNT_PRESET_IDS_NON_PLAYER.clear();
         PRESET_BY_ID.clear();
         TIME_SENSITIVE_PHASE_IDS.clear();
 
@@ -171,6 +173,19 @@ public class PresetManager {
             }
             if (isZeroCount) {
                 ZERO_COUNT_PRESET_IDS.add(preset.id);
+                boolean nonPlayerPossible = false;
+                for (SetPhase phase : preset.phases) {
+                    boolean blocked = false;
+                    if (phase.additionalConditions != null) {
+                        for (Condition cond : phase.additionalConditions) {
+                            if (cond.requiresPlayer()) { blocked = true; break; }
+                        }
+                    }
+                    if (!blocked) { nonPlayerPossible = true; break; }
+                }
+                if (nonPlayerPossible) {
+                    ZERO_COUNT_PRESET_IDS_NON_PLAYER.add(preset.id);
+                }
             }
 
             // 构建物品索引（原有逻辑）

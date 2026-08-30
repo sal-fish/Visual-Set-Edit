@@ -354,8 +354,8 @@ public class SetEventHandler {
         Set<String> candidatePresetIds = new HashSet<>();
         for (String id : equippedIds) candidatePresetIds.addAll(PresetManager.getPresetIdsForItem(id));
 
-        // 加入所有零件套预设 ID
-        candidatePresetIds.addAll(PresetManager.ZERO_COUNT_PRESET_IDS);
+        // 加入所有零件套预设 ID：玩家取全集；非玩家仅取"非玩家可匹配"子集（载入期静态分析，见 PresetManager）
+        candidatePresetIds.addAll(entity instanceof Player ? PresetManager.ZERO_COUNT_PRESET_IDS : PresetManager.ZERO_COUNT_PRESET_IDS_NON_PLAYER);
 
         List<ActiveSetTracker.ActivePhase> newPhases;
         if (candidatePresetIds.isEmpty()) {
@@ -437,21 +437,29 @@ public class SetEventHandler {
         boolean riding = entity.isPassenger();
 
         var level = entity.level();
-        String dimension = level.dimension().location().toString();
-        String biome = level.getBiome(entity.blockPosition()).unwrapKey()
-                .map(k -> k.location().toString()).orElse("");
+        int dimensionHash = level.dimension().location().hashCode();
+        var biomeHolder = level.getBiome(entity.blockPosition());
+        int biomeHash = biomeHolder.unwrapKey().map(k -> k.location().hashCode()).orElse(0);
         int blockY = entity.blockPosition().getY();
         boolean isRaining = level.isRaining();
         boolean isThundering = level.isThundering();
         int moonPhase = level.getMoonPhase();
         int skyLight = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, entity.blockPosition());
         int blockLight = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, entity.blockPosition());
-        int temperature = (int) (level.getBiome(entity.blockPosition()).get().getBaseTemperature() * 100);
+        int temperature = (int) (biomeHolder.get().getBaseTemperature() * 100);
 
-        List<String> activeEffects = entity.getActiveEffects().stream()
-                .map(effect -> Objects.requireNonNull(ForgeRegistries.MOB_EFFECTS.getKey(effect.getEffect())).toString())
-                .sorted()
-                .collect(Collectors.toList());
+        int effectHash = 1;
+        var activeEffects = entity.getActiveEffects();
+        if (!activeEffects.isEmpty()) {
+            int[] effectIds = new int[activeEffects.size()];
+            int idx = 0;
+            for (MobEffectInstance inst : activeEffects) {
+                ResourceLocation key = ForgeRegistries.MOB_EFFECTS.getKey(inst.getEffect());
+                effectIds[idx++] = key == null ? 0 : key.hashCode();
+            }
+            Arrays.sort(effectIds);
+            for (int id : effectIds) effectHash = effectHash * 31 + id;
+        }
 
         double mana = 0, manaPercent = 0;
         if (IntegrationManager.isIronSpellsLoaded()) {
@@ -460,15 +468,42 @@ public class SetEventHandler {
             manaPercent = is.getManaPercent(entity);
         }
 
-        List<String> entityTags = new ArrayList<>(entity.getTags());
-        Collections.sort(entityTags);
+        int tagHash = 1;
+        if (!entity.getTags().isEmpty()) {
+            String[] tags = entity.getTags().toArray(new String[0]);
+            Arrays.sort(tags);
+            for (String t : tags) tagHash = tagHash * 31 + t.hashCode();
+        }
 
-        return Objects.hash(health, food, armor, xpLevel, fallDistance,
-                submerged, sneaking, sprinting, swimming, onGround, onWall, flying, sleeping, riding,
-                dimension, biome, blockY, isRaining, isThundering, moonPhase,
-                skyLight, blockLight, temperature,
-                activeEffects, mana, manaPercent,
-                entityTags);
+        int result = 1;
+        result = 31 * result + health;
+        result = 31 * result + food;
+        result = 31 * result + armor;
+        result = 31 * result + xpLevel;
+        result = 31 * result + fallDistance;
+        result = 31 * result + (submerged ? 1 : 0);
+        result = 31 * result + (sneaking ? 1 : 0);
+        result = 31 * result + (sprinting ? 1 : 0);
+        result = 31 * result + (swimming ? 1 : 0);
+        result = 31 * result + (onGround ? 1 : 0);
+        result = 31 * result + (onWall ? 1 : 0);
+        result = 31 * result + (flying ? 1 : 0);
+        result = 31 * result + (sleeping ? 1 : 0);
+        result = 31 * result + (riding ? 1 : 0);
+        result = 31 * result + dimensionHash;
+        result = 31 * result + biomeHash;
+        result = 31 * result + blockY;
+        result = 31 * result + (isRaining ? 1 : 0);
+        result = 31 * result + (isThundering ? 1 : 0);
+        result = 31 * result + moonPhase;
+        result = 31 * result + skyLight;
+        result = 31 * result + blockLight;
+        result = 31 * result + temperature;
+        result = 31 * result + effectHash;
+        result = 31 * result + tagHash;
+        result = 31 * result + Double.hashCode(mana);
+        result = 31 * result + Double.hashCode(manaPercent);
+        return result;
     }
 
     //效果维护
