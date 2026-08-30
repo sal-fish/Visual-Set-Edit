@@ -123,8 +123,10 @@ public class CuriosIntegration implements IModIntegration {
     }
 
     @Override public List<String> getExtraSlots() {
-        Set<String> slotIds = CuriosApi.getSlotHelper().getSlotTypeIds();
-        return new ArrayList<>(slotIds);
+        var helper = CuriosApi.getSlotHelper();
+        if (helper == null) return new ArrayList<>();
+        Set<String> slotIds = helper.getSlotTypeIds();
+        return slotIds == null ? new ArrayList<>() : new ArrayList<>(slotIds);
     }
 
     @Override public ItemStack getSlotStack(LivingEntity entity, String slotId) {

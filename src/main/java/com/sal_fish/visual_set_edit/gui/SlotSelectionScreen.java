@@ -71,12 +71,18 @@ public class SlotSelectionScreen extends Screen {
         if (!onlyCurios) {
             allSlots.addAll(Arrays.asList(VANILLA_SLOTS));
         }
-
-        if (IntegrationManager.isCuriosLoaded()) {
-            for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
-                allSlots.add("curios:" + slotId);
+        try {
+            if (IntegrationManager.isCuriosLoaded()) {
+                var curios = IntegrationManager.getCurios();
+                if (curios != null) {
+                    for (String slotId : curios.getExtraSlots()) {
+                        allSlots.add("curios:" + slotId);
+                    }
+                    allSlots.add(IModIntegration.ANY_CURIOS_SLOT);
+                }
             }
-            allSlots.add(IModIntegration.ANY_CURIOS_SLOT);
+        } catch (Exception e) {
+            com.sal_fish.visual_set_edit.VisualSetEdit.LOGGER.warn("[VSE] Failed to load curios slots", e);
         }
 
         allSlots.sort(Comparator.naturalOrder());
