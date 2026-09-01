@@ -7,10 +7,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.Objects;
+
 public class PlayerStateCondition extends Condition {
     @Expose public String field;
     @Expose public String comparator;
     @Expose public String value;
+    @Expose public int effectAmplifier = -1; // 仅 HAS_EFFECT 使用：要求的药水等级（amplifier），-1 = 不要求等级
 
     public PlayerStateCondition() { this.type = "player_state"; }
 
@@ -33,7 +36,12 @@ public class PlayerStateCondition extends Condition {
                         compareAbsolute(player.experienceLevel, comparator, value);
                 case "HAS_EFFECT" -> {
                     MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(value));
-                    yield ef != null && entity.hasEffect(ef);
+                    if (ef == null || !entity.hasEffect(ef)) yield false;
+                    // effectAmplifier >= 0 时要求精确等于该等级（0 = 1级，1 = 2级…）；-1 = 不要求
+                    if (effectAmplifier >= 0) {
+                        yield Objects.requireNonNull(entity.getEffect(ef)).getAmplifier() == effectAmplifier;
+                    }
+                    yield true;
                 }
                 case "FALL_DISTANCE" -> compareAbsolute((int) entity.fallDistance, comparator, value);
                 case "SUBMERGED" -> entity.isInWaterOrBubble();
@@ -127,6 +135,9 @@ public class PlayerStateCondition extends Condition {
 
     @Override
     public String getDisplayText() {
+        if ("HAS_EFFECT".equals(field) && effectAmplifier >= 0) {
+            return "HAS_EFFECT " + value + " lvl==" + (effectAmplifier + 1);
+        }
         return field + " " + comparator + " " + value;
     }
 }

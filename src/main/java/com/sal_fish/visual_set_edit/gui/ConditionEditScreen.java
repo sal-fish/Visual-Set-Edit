@@ -56,6 +56,8 @@ public class ConditionEditScreen extends Screen {
 
     private String conditionCustomDisplayText = "";
     private EditBox conditionCustomDisplayTextEdit;
+    private int playerStateEffectAmplifier = -1;  // HAS_EFFECT 条件要求的效果等级（-1 = 任意）
+    private EditBox effectLevelEdit;
 
     private final List<Condition> tempChildren = new ArrayList<>();
 
@@ -84,6 +86,7 @@ public class ConditionEditScreen extends Screen {
             field = ps.field;
             comparator = ps.comparator;
             value = ps.value;
+            playerStateEffectAmplifier = ps.effectAmplifier;
         } else if (c instanceof InventoryCondition inv) {
             invSlot = inv.slot != null ? inv.slot : "HEAD";
             if (inv.itemCondition != null) {
@@ -314,6 +317,22 @@ public class ConditionEditScreen extends Screen {
                 addRenderableWidget(listButton);
             }
             y += rowHeight + spacing;
+
+            // HAS_EFFECT：效果等级（-1 = 任意，0 = 1级，1 = 2级…）
+            if (condType.equals("player_state") && "HAS_EFFECT".equals(field)) {
+                addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.condition.value.effect_level"), font));
+                y += rowHeight;
+                effectLevelEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.condition.value.effect_level"));
+                effectLevelEdit.setMaxLength(4);
+                effectLevelEdit.setValue(String.valueOf(playerStateEffectAmplifier));
+                effectLevelEdit.setResponder(s -> {
+                    try { playerStateEffectAmplifier = Integer.parseInt(s); } catch (Exception ignored) {}
+                });
+                addRenderableWidget(effectLevelEdit);
+                y += rowHeight + spacing;
+            }
         }
         y += 6;
 
@@ -606,6 +625,7 @@ public class ConditionEditScreen extends Screen {
                 p.field = field;
                 p.comparator = comparator;
                 p.value = valueEdit != null ? valueEdit.getValue() : value;
+                p.effectAmplifier = effectLevelEdit != null ? playerStateEffectAmplifier : -1;
                 yield p;
             }
             case "inventory" -> {

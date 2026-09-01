@@ -723,6 +723,10 @@ public class SetEventHandler {
                 }
             }
         }
+        if (!entity.isAlive() || entity.isDeadOrDying()) {
+            UPDATING.remove(entity.getUUID());
+            return;
+        }
         for (var n : newPhases) {
             String key = n.presetId() + ":" + n.phaseIndex();
             ActiveSetTracker.ActivePhase oldPhase = oldPhaseMap.get(key);

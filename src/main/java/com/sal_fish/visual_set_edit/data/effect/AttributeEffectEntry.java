@@ -78,9 +78,15 @@ public class AttributeEffectEntry extends EffectEntry {
         if (active) {
             // 生效中：到期则移除
             if (lastTick > 0 && now - lastTick >= durationSeconds * 20L) {
-                removeModifierQuiet(entity);
-                data.putBoolean(activeKey, false);
-                data.putLong(tickKey, now);
+                if (cooldownSeconds > 0) {
+                    // 有冷却：摘除 modifier
+                    removeModifierQuiet(entity);
+                    data.putBoolean(activeKey, false);
+                    data.putLong(tickKey, now);
+                } else {
+                    // 无冷却：重置cd
+                    data.putLong(tickKey, now);
+                }
             }
         } else {
             // 冷却中：跳过

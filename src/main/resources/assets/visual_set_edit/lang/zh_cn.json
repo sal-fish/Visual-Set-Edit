@@ -96,6 +96,7 @@
   "visual_set_edit.gui.condition.value.hurt_threshold": "伤害阈值",
   "visual_set_edit.gui.condition.value.hurt_window": "时间（秒）",
   "visual_set_edit.gui.condition.value.percent_hint": "例：50 或 50%",
+  "visual_set_edit.gui.condition.value.effect_level": "效果等级(-1=任意, 0=1级)",
   "visual_set_edit.gui.condition.value.seconds": "秒数（留空=任意）",
   "visual_set_edit.gui.condition.weather.CLEAR": "晴朗",
   "visual_set_edit.gui.condition.weather.RAIN": "雨/雪",

@@ -96,6 +96,7 @@
   "visual_set_edit.gui.condition.value.hurt_threshold": "Damage Threshold",
   "visual_set_edit.gui.condition.value.hurt_window": "Time Window (seconds)",
   "visual_set_edit.gui.condition.value.percent_hint": "e.g. 50 or 50%",
+  "visual_set_edit.gui.condition.value.effect_level": "Effect Level (-1 = any, 0 = level 1)",
   "visual_set_edit.gui.condition.value.seconds": "Seconds (empty = any)",
   "visual_set_edit.gui.condition.weather.CLEAR": "Clear",
   "visual_set_edit.gui.condition.weather.RAIN": "Rain/Snow",
