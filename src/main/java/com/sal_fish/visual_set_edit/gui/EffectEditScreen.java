@@ -47,6 +47,10 @@ public class EffectEditScreen extends Screen {
     private String dynamicSourceAttributeId = "";
     private Button selectSourceAttributeButton;
 
+    // 动态属性 - 药水等级变量
+    private String dynamicSourcePotionId = "";
+    private EditBox sourcePotionEditBox;
+
     // Ability
     private String abilityId = "FLIGHT";
 
@@ -183,6 +187,7 @@ public class EffectEditScreen extends Screen {
             dynamicClipMaxX = dynAttr.clipMaxX;
             dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
             dynamicScoreboardObjective = dynAttr.scoreboardObjective != null ? dynAttr.scoreboardObjective : "";
+            dynamicSourcePotionId = dynAttr.sourcePotionId != null ? dynAttr.sourcePotionId : "";
         } else if (existing instanceof L2DifficultyModEffectEntry mod) {
             effectType = "l2_difficulty_mod";
             l2DifficultyAmount = mod.amount;
@@ -780,6 +785,33 @@ public class EffectEditScreen extends Screen {
             y += rowHeight + spacing;
         }
 
+        //当变量类型为“药水等级”时
+        if (dynamicVariable == DynamicAttributeEffectEntry.VariableType.POTION_LEVEL) {
+            addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.source_potion"), font));
+            y += rowHeight;
+
+            int editWidth = totalWidth - 22;
+            sourcePotionEditBox = new EditBox(font, centerX - totalWidth / 2, y, editWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.source_potion"));
+            sourcePotionEditBox.setMaxLength(5201314);
+            sourcePotionEditBox.setValue(dynamicSourcePotionId);
+            sourcePotionEditBox.setResponder(s -> dynamicSourcePotionId = s.trim());
+            addRenderableWidget(sourcePotionEditBox);
+
+            Button selectSourcePotionButton = Button.builder(Component.literal("📦"), btn -> {
+                assert minecraft != null;
+                minecraft.setScreen(new MobEffectListScreen(this, rl -> {
+                    dynamicSourcePotionId = rl.toString();
+                    if (sourcePotionEditBox != null) {
+                        sourcePotionEditBox.setValue(rl.toString());
+                    }
+                }));
+            }).pos(centerX - totalWidth / 2 + editWidth + 2, y).size(20, rowHeight).build();
+            addRenderableWidget(selectSourcePotionButton);
+            y += rowHeight + spacing;
+        }
+
         // 公式类型
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.formula"), font)); y += rowHeight;
@@ -1086,6 +1118,7 @@ public class EffectEditScreen extends Screen {
                 dyn.clipMaxX = parseDouble(dynamicClipMaxEdit);
                 dyn.sourceAttributeId = dynamicSourceAttributeId;
                 dyn.scoreboardObjective = dynamicScoreboardObjective;
+                dyn.sourcePotionId = dynamicSourcePotionId;
                 e = dyn;
             }
             case "tag" -> {

@@ -7,6 +7,8 @@ import com.sal_fish.visual_set_edit.util.AttributeHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -25,7 +27,8 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         L2H_CHUNK_DIFFICULTY,
         L2H_PLAYER_DIFFICULTY,
         ATTRIBUTE_VALUE,
-        SCOREBOARD_VALUE
+        SCOREBOARD_VALUE,
+        POTION_LEVEL
     }
 
     public enum FormulaType {
@@ -44,6 +47,7 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
     @Expose public String uniqueId;
     @Expose public String sourceAttributeId = "";
     @Expose public String scoreboardObjective = "";
+    @Expose public String sourcePotionId = "";
 
     private transient Long startTick = null;
 
@@ -70,6 +74,9 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
         }
         if (scoreboardObjective == null) {
             scoreboardObjective = "";
+        }
+        if (sourcePotionId == null) {
+            sourcePotionId = "";
         }
     }
 
@@ -188,6 +195,24 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
                     }
                 }
             }
+            case POTION_LEVEL -> {
+                if (sourcePotionId == null || sourcePotionId.isEmpty()) {
+                    raw = 0;
+                } else {
+                    MobEffect sourceEffect = ForgeRegistries.MOB_EFFECTS.getValue(
+                            ResourceLocation.tryParse(sourcePotionId));
+                    if (sourceEffect == null) {
+                        raw = 0;
+                    } else {
+                        MobEffectInstance instance = entity.getEffect(sourceEffect);
+                        if (instance == null) {
+                            raw = 0; // 玩家当前没有该药水效果，视为 0 级
+                        } else {
+                            raw = instance.getAmplifier() + 1; // amplifier 从 0 起，等级 = amplifier + 1
+                        }
+                    }
+                }
+            }
             default -> raw = 0;
         }
         if (!Double.isNaN(clipMinX) && raw < clipMinX) raw = clipMinX;
@@ -302,6 +327,14 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             varName = scoreboardObjective.isEmpty()
                     ? Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE").getString()
                     : scoreboardObjective;
+        } else if (variableType == VariableType.POTION_LEVEL) {
+            MobEffect sourceEffect = null;
+            if (!sourcePotionId.isEmpty()) {
+                sourceEffect = ForgeRegistries.MOB_EFFECTS.getValue(ResourceLocation.tryParse(sourcePotionId));
+            }
+            varName = sourceEffect != null
+                    ? Component.translatable(sourceEffect.getDescriptionId()).getString()
+                    : Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var.POTION_LEVEL").getString();
         } else {
             varName = Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.var." + variableType.name()).getString();
         }

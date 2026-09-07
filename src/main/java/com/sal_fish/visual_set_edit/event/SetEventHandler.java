@@ -20,6 +20,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -78,6 +80,28 @@ public class SetEventHandler {
         ActiveSetTracker.clearAll();
     }
 
+    private void cleanupOrphanedModifiers(LivingEntity entity) {
+        Set<String> managed = new HashSet<>();
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry attr) {
+                    attr.ensureUniqueId();
+                    managed.add(attr.uniqueId);
+                }
+            }
+        }
+        for (AttributeInstance instance : entity.getAttributes().getSyncableAttributes()) {
+            for (AttributeModifier mod : new ArrayList<>(instance.getModifiers())) {
+                String name = mod.getName();
+                if (!name.startsWith("VSE ")) continue;
+                if (name.startsWith("VSE Dynamic ")) continue;
+                if (name.startsWith("VSE Slot Modifier")) continue;
+                if (managed.contains(mod.getId().toString())) continue;
+                instance.removeModifier(mod.getId());
+            }
+        }
+    }
+
     //事件处理
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -86,9 +110,10 @@ public class SetEventHandler {
                     PacketDistributor.PLAYER.with(() -> player),
                     new S2CSyncPresetsPacket(PresetManager.getPresets())
             );
-            // 清理上次会话残留的摔落免疫标记与飞行计数（若套装仍激活，recreateEffects 会重新写入）
+            // 清理上次会话残留的摔落免疫标记与飞行计数
             player.getPersistentData().remove("vse_fallimmune");
             AbilityEffectEntry.clearFlightCounter(player.getUUID());
+            cleanupOrphanedModifiers(player);
             recreateEffects(player);
             SNAPSHOT_HASH_CACHE.remove(player.getUUID());
         }
@@ -97,6 +122,7 @@ public class SetEventHandler {
     @SubscribeEvent
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         AbilityEffectEntry.clearFlightCounter(event.getEntity().getUUID());
+        com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry.clearOrphans(event.getEntity().getUUID());
         clearSnapshotCache(event.getEntity().getUUID());
     }
 
@@ -404,7 +430,7 @@ public class SetEventHandler {
         }
 
         List<ActiveSetTracker.ActivePhase> oldPhases = ActiveSetTracker.getActivePhases(entity);
-        if (phasesEqual(oldPhases, newPhases)) return;
+        if (phasesEqual(oldPhases, newPhases) && phasesContentEqual(oldPhases, newPhases)) return;
 
         recreateEffectsFromList(entity, newPhases);
     }
@@ -592,6 +618,14 @@ public class SetEventHandler {
                 }
             }
         }
+        java.util.List<com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry> orphans =
+                com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry.getOrphaned(entity.getUUID());
+        if (orphans != null) {
+            for (com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry attr
+                    : new java.util.ArrayList<>(orphans)) {
+                attr.updateTimed(entity);
+            }
+        }
     }
 
     private void ensureAllPermanentEffectsApplied(LivingEntity entity) {
@@ -692,6 +726,27 @@ public class SetEventHandler {
         return true;
     }
 
+    private boolean phasesContentEqual(List<ActiveSetTracker.ActivePhase> a, List<ActiveSetTracker.ActivePhase> b) {
+        for (var old : a) {
+            String key = old.presetId() + ":" + old.phaseIndex();
+            ActiveSetTracker.ActivePhase match = null;
+            for (var n : b) {
+                if ((n.presetId() + ":" + n.phaseIndex()).equals(key)) {
+                    match = n;
+                    break;
+                }
+            }
+            if (match == null || !phaseContentMatches(old.phase(), match.phase())) return false;
+        }
+        return true;
+    }
+
+    // 两个 phase 的效果内容是否一致
+    private boolean phaseContentMatches(SetPhase a, SetPhase b) {
+        if (a == b) return true;
+        return PresetManager.GSON.toJson(a).equals(PresetManager.GSON.toJson(b));
+    }
+
     //效果重建
     private void recreateEffects(LivingEntity entity) {
         List<ActiveSetTracker.ActivePhase> newPhases = evaluateAllPresets(entity);
@@ -732,7 +787,36 @@ public class SetEventHandler {
             ActiveSetTracker.ActivePhase oldPhase = oldPhaseMap.get(key);
 
             if (oldPhase != null) {
-                finalPhases.add(oldPhase);
+                if (phaseContentMatches(oldPhase.phase(), n.phase())) {
+                    finalPhases.add(oldPhase);
+                } else {
+                    for (EffectEntry entry : oldPhase.phase().effects) {
+                        entry.remove(entity);
+                    }
+                    for (EffectEntry oldEntry : oldPhase.phase().effects) {
+                        if (oldEntry instanceof PotionEffectEntry oldPot
+                                && "SELF".equals(oldPot.target)
+                                && oldPot.durationSeconds != -1
+                                && oldPot.mobEffectId != null) {
+                            boolean stillInNew = n.phase().effects.stream().anyMatch(e ->
+                                    e instanceof PotionEffectEntry np
+                                            && oldPot.mobEffectId.equals(np.mobEffectId)
+                                            && oldPot.target.equals(np.target));
+                            if (stillInNew) {
+                                MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(
+                                        new ResourceLocation(oldPot.mobEffectId));
+                                if (effect != null) entity.removeEffect(effect);
+                            }
+                        }
+                    }
+                    SetPhase independentPhase = deepCopyPhase(n.phase());
+                    ActiveSetTracker.ActivePhase newActive =
+                            new ActiveSetTracker.ActivePhase(n.presetId(), n.phaseIndex(), independentPhase);
+                    finalPhases.add(newActive);
+                    for (EffectEntry entry : independentPhase.effects) {
+                        entry.apply(entity);
+                    }
+                }
             } else {
                 SetPhase independentPhase = deepCopyPhase(n.phase());
                 ActiveSetTracker.ActivePhase newActive =

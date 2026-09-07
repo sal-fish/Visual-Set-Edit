@@ -368,11 +368,14 @@
   "visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE": "Scoreboard Value",
   "visual_set_edit.gui.scoreboard_register.title": "Scoreboard Objectives",
   "visual_set_edit.gui.scoreboard_register.name": "Objective Name",
+  "visual_set_edit.gui.scoreboard_register.name_tooltip": "Only lowercase letters, digits and underscores are allowed",
   "visual_set_edit.gui.scoreboard_register.button": "Register Scoreboard",
   "visual_set_edit.gui.select_scoreboard_objective": "Select Objective",
   "visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective": "Scoreboard Objective",
   "visual_set_edit.gui.add": "Add",
   "visual_set_edit.gui.target_filter.type.entity_tags": "Entity Tags",
   "visual_set_edit.gui.target_filter.entity_tags": "Entity Tags (comma separated)",
-  "visual_set_edit.gui.effect.command.trigger.on_kill_specific": "On Kill Specific"
+  "visual_set_edit.gui.effect.command.trigger.on_kill_specific": "On Kill Specific",
+  "visual_set_edit.gui.effect.dynamic_attribute.var.POTION_LEVEL": "Potion Level",
+  "visual_set_edit.gui.effect.dynamic_attribute.source_potion": "Source Potion Effect"
 }

@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ScoreboardRegisterScreen extends Screen {
+    private static final int COLOR_VALID = 14737632;
+    private static final int COLOR_INVALID = 0xFFFF5555;
+
     private final Screen parent;
     private final List<String> objectives = new ArrayList<>();
     private ScrollableSelectionList list;
@@ -35,6 +38,12 @@ public class ScoreboardRegisterScreen extends Screen {
         nameEdit = new EditBox(font, centerX, y, 160, 20,
                 Component.translatable("visual_set_edit.gui.scoreboard_register.name"));
         nameEdit.setMaxLength(5201314);
+        // 实时校验：不合规（非小写字母/数字/下划线）时文字变红，合规或为空时恢复默认色
+        nameEdit.setResponder(s -> {
+            String v = s == null ? "" : s.trim();
+            nameEdit.setTextColor(
+                    v.isEmpty() || ScoreboardObjectiveManager.isValidName(v) ? COLOR_VALID : COLOR_INVALID);
+        });
         addRenderableWidget(nameEdit);
         y += 22;
 
@@ -42,8 +51,8 @@ public class ScoreboardRegisterScreen extends Screen {
                 Component.translatable("visual_set_edit.gui.add"),
                 btn -> {
                     String name = nameEdit.getValue().trim();
-                    if (!name.isEmpty()) {
-                        ScoreboardObjectiveManager.addObjective(name);
+                    if (ScoreboardObjectiveManager.isValidName(name)
+                            && ScoreboardObjectiveManager.addObjective(name)) {
                         objectives.clear();
                         objectives.addAll(ScoreboardObjectiveManager.getObjectives());
                         nameEdit.setValue("");
@@ -96,6 +105,12 @@ public class ScoreboardRegisterScreen extends Screen {
         graphics.drawCenteredString(font,
                 Component.translatable("visual_set_edit.gui.scoreboard_register.title"),
                 width / 2, 10, 0xFFFFFF);
+        // 鼠标悬停输入框时显示命名规则提示
+        if (nameEdit != null && nameEdit.isMouseOver(mouseX, mouseY)) {
+            graphics.renderTooltip(font,
+                    Component.translatable("visual_set_edit.gui.scoreboard_register.name_tooltip"),
+                    mouseX, mouseY);
+        }
     }
 
     @Override

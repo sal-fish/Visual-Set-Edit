@@ -24,11 +24,38 @@ public class ScoreboardObjectiveManager {
         return Collections.unmodifiableList(objectives);
     }
 
-    public static void addObjective(String name) {
-        if (name != null && !name.isEmpty() && !objectives.contains(name)) {
+    /**
+     * 计分板目标名称是否合法：只允许小写字母、数字、下划线。
+     * 这是本模组约定的命名规则；不合规的名称在 GUI 列表/选择器中会因
+     * ResourceLocation("vse", name) 校验失败直接抛异常导致客户端崩溃，
+     * 因此入口处必须拦截。
+     */
+    public static boolean isValidName(String name) {
+        if (name == null || name.isEmpty()) return false;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 添加计分板目标。名称不合规时拒绝添加（不崩溃、不入列），返回 false。
+     */
+    public static boolean addObjective(String name) {
+        if (!isValidName(name)) {
+            VisualSetEdit.LOGGER.warn(
+                    "Ignored invalid scoreboard objective name '{}' (only lowercase letters, digits and underscore are allowed)",
+                    name);
+            return false;
+        }
+        if (!objectives.contains(name)) {
             objectives.add(name);
             save();
         }
+        return true;
     }
 
     public static void removeObjective(String name) {
@@ -45,10 +72,25 @@ public class ScoreboardObjectiveManager {
             }
             String json = Files.readString(OBJECTIVES_FILE);
             List<String> loaded = GSON.fromJson(json, new TypeToken<List<String>>(){}.getType());
-            objectives = loaded != null ? new ArrayList<>(loaded) : new ArrayList<>();
-            // 去重
-            Set<String> set = new LinkedHashSet<>(objectives);
-            objectives = new ArrayList<>(set);
+            if (loaded == null) {
+                objectives = new ArrayList<>();
+                return;
+            }
+            // 过滤掉历史遗留/手改 JSON 产生的不合规名称，避免 GUI 列表构造
+            // ResourceLocation 时崩溃；合规名去重保序。
+            List<String> clean = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            for (String name : loaded) {
+                if (name == null) continue;
+                if (!isValidName(name)) {
+                    VisualSetEdit.LOGGER.warn(
+                            "Removed invalid scoreboard objective name '{}' from config (only lowercase letters, digits and underscore are allowed)",
+                            name);
+                    continue;
+                }
+                if (seen.add(name)) clean.add(name);
+            }
+            objectives = clean;
         } catch (Exception e) {
             VisualSetEdit.LOGGER.error("Failed to load scoreboard objectives", e);
             objectives.clear();
@@ -70,6 +112,8 @@ public class ScoreboardObjectiveManager {
         if (server == null) return;
         var scoreboard = server.getScoreboard();
         for (String name : objectives) {
+            // 防御性跳过（load/addObjective 已保证名单合规，此处双保险）
+            if (!isValidName(name)) continue;
             if (scoreboard.getObjective(name) == null) {
                 scoreboard.addObjective(
                         name,

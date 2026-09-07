@@ -10,7 +10,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraftforge.registries.ForgeRegistries;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AttributeEffectEntry extends EffectEntry {
     @Expose public String attributeId;
@@ -19,6 +22,38 @@ public class AttributeEffectEntry extends EffectEntry {
     @Expose public String uniqueId;
     @Expose public int durationSeconds = -1;
     @Expose public int cooldownSeconds = 0;
+
+    private static final ConcurrentHashMap<UUID, List<AttributeEffectEntry>> ORPHANED_TIMED_ATTRS = new ConcurrentHashMap<>();
+
+    public static void clearOrphans(UUID uuid) {
+        ORPHANED_TIMED_ATTRS.remove(uuid);
+    }
+
+    public static List<AttributeEffectEntry> getOrphaned(UUID uuid) {
+        return ORPHANED_TIMED_ATTRS.get(uuid);
+    }
+
+    private static void registerOrphan(LivingEntity entity, AttributeEffectEntry attr) {
+        ORPHANED_TIMED_ATTRS.computeIfAbsent(entity.getUUID(), k -> new ArrayList<>()).add(attr);
+    }
+
+    private static void unregisterOrphan(UUID uuid, AttributeEffectEntry attr) {
+        List<AttributeEffectEntry> list = ORPHANED_TIMED_ATTRS.get(uuid);
+        if (list != null) {
+            list.remove(attr);
+            if (list.isEmpty()) ORPHANED_TIMED_ATTRS.remove(uuid);
+        }
+    }
+
+    // 按 uniqueId 清除历史孤儿：保存/重穿重建会产生新的 deepCopy 实例（引用不同），
+    // 旧孤儿对象引用比较清不掉，这里按 uniqueId 统一清掉，避免孤儿表泄漏与幽灵双跑。
+    private static void purgeOrphans(UUID entityUuid, String uniqueId) {
+        List<AttributeEffectEntry> list = ORPHANED_TIMED_ATTRS.get(entityUuid);
+        if (list != null) {
+            list.removeIf(o -> uniqueId.equals(o.uniqueId));
+            if (list.isEmpty()) ORPHANED_TIMED_ATTRS.remove(entityUuid);
+        }
+    }
 
     public AttributeEffectEntry() {
         this.type = "attribute";
@@ -47,6 +82,7 @@ public class AttributeEffectEntry extends EffectEntry {
         ensureUniqueId();
         applyInternal(entity);
         if (durationSeconds > 0) {
+            purgeOrphans(entity.getUUID(), uniqueId); // 重新激活：清掉同 uniqueId 的历史孤儿（旧 deepCopy 实例）
             CompoundTag data = entity.getPersistentData();
             data.putBoolean("vse_attr_active_" + uniqueId, true);
             data.putLong("vse_attr_tick_" + uniqueId, entity.level().getGameTime());
@@ -56,12 +92,11 @@ public class AttributeEffectEntry extends EffectEntry {
     @Override
     public void remove(LivingEntity entity) {
         ensureUniqueId();
-        removeModifierQuiet(entity);
         if (durationSeconds > 0) {
-            CompoundTag data = entity.getPersistentData();
-            data.remove("vse_attr_active_" + uniqueId);
-            data.remove("vse_attr_tick_" + uniqueId);
+            registerOrphan(entity, this);
+            return;
         }
+        removeModifierQuiet(entity);
     }
 
     // 限时属性周期检查（由 SetEventHandler 每 20 tick 调用）
@@ -84,17 +119,25 @@ public class AttributeEffectEntry extends EffectEntry {
                     data.putBoolean(activeKey, false);
                     data.putLong(tickKey, now);
                 } else {
-                    // 无冷却：重置cd
-                    data.putLong(tickKey, now);
+                    if (isManagedElsewhere(entity)) {
+                        unregisterOrphan(entity.getUUID(), this);
+                    } else if (isPhaseStillActive(entity)) {
+                        data.putLong(tickKey, now);
+                    } else {
+                        removeModifierQuiet(entity);
+                        data.putBoolean(activeKey, false);
+                        unregisterOrphan(entity.getUUID(), this);
+                    }
                 }
             }
         } else {
-            // 冷却中：跳过
             if (cooldownSeconds > 0 && lastTick > 0 && now - lastTick < cooldownSeconds * 20L) {
                 return;
             }
-            // 仅当所属阶段仍激活时重新触发（防止脱装后仍周期性加属性）
-            if (!isPhaseStillActive(entity)) return;
+            if (!isPhaseStillActive(entity)) {
+                unregisterOrphan(entity.getUUID(), this);
+                return;
+            }
             applyInternal(entity);
             data.putBoolean(activeKey, true);
             data.putLong(tickKey, now);
@@ -105,6 +148,17 @@ public class AttributeEffectEntry extends EffectEntry {
         for (var active : ActiveSetTracker.getActivePhases(entity)) {
             for (EffectEntry entry : active.phase().effects) {
                 if (entry == this) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isManagedElsewhere(LivingEntity entity) {
+        for (var active : ActiveSetTracker.getActivePhases(entity)) {
+            for (EffectEntry entry : active.phase().effects) {
+                if (entry instanceof AttributeEffectEntry attr && attr != this && uniqueId.equals(attr.uniqueId)) {
+                    return true;
+                }
             }
         }
         return false;
