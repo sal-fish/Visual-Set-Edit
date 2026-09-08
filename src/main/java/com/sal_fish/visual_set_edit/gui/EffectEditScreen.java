@@ -97,9 +97,11 @@ public class EffectEditScreen extends Screen {
     private DynamicAttributeEffectEntry.VariableType dynamicVariable = DynamicAttributeEffectEntry.VariableType.GAME_TIME;
     private DynamicAttributeEffectEntry.FormulaType dynamicFormula = DynamicAttributeEffectEntry.FormulaType.LINEAR;
     private double[] dynamicCoeffs = {0, 0};
+    private String[] dynamicCoeffExprs = new String[0];
     private double dynamicBase = 2.0;
+    private String dynamicBaseExpr = "";
     private double dynamicClipMinX = Double.NaN, dynamicClipMaxX = Double.NaN;
-    private EditBox dynamicClipMinEdit, dynamicClipMaxEdit;
+    private String dynamicClipMinExpr = "", dynamicClipMaxExpr = "";
     private Button selectDynamicAttributeButton;
     private final List<EditBox> coeffEdits = new ArrayList<>();
     private String dynamicScoreboardObjective = "";
@@ -182,9 +184,13 @@ public class EffectEditScreen extends Screen {
             dynamicVariable = dynAttr.variableType;
             dynamicFormula = dynAttr.formulaType;
             dynamicCoeffs = dynAttr.coefficients != null ? dynAttr.coefficients.clone() : new double[]{0, 0};
+            dynamicCoeffExprs = dynAttr.coeffExpressions != null ? dynAttr.coeffExpressions.clone() : new String[0];
             dynamicBase = dynAttr.base;
+            dynamicBaseExpr = dynAttr.baseExpression != null ? dynAttr.baseExpression : "";
             dynamicClipMinX = dynAttr.clipMinX;
             dynamicClipMaxX = dynAttr.clipMaxX;
+            dynamicClipMinExpr = dynAttr.clipMinExpression != null ? dynAttr.clipMinExpression : "";
+            dynamicClipMaxExpr = dynAttr.clipMaxExpression != null ? dynAttr.clipMaxExpression : "";
             dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
             dynamicScoreboardObjective = dynAttr.scoreboardObjective != null ? dynAttr.scoreboardObjective : "";
             dynamicSourcePotionId = dynAttr.sourcePotionId != null ? dynAttr.sourcePotionId : "";
@@ -813,8 +819,9 @@ public class EffectEditScreen extends Screen {
         }
 
         // 公式类型
-        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.formula"), font)); y += rowHeight;
+        StringWidget formulaLabel = new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.formula"), font);
+        addRenderableWidget(formulaLabel); y += rowHeight;
         CycleButton<DynamicAttributeEffectEntry.FormulaType> formulaBtn = CycleButton.<DynamicAttributeEffectEntry.FormulaType>builder(
                         f -> Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.formula." + f.name()))
                 .withValues(DynamicAttributeEffectEntry.FormulaType.values()).displayOnlyValue().withInitialValue(dynamicFormula)
@@ -851,8 +858,13 @@ public class EffectEditScreen extends Screen {
                         Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.base"), font));
                 y += rowHeight;
                 EditBox baseEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight, Component.literal("base"));
-                baseEdit.setValue(String.valueOf(dynamicBase));
-                baseEdit.setResponder(s -> { try { dynamicBase = Double.parseDouble(s); } catch (Exception ignored) {} });
+                baseEdit.setMaxLength(5201314);
+                baseEdit.setValue(!dynamicBaseExpr.isEmpty() ? dynamicBaseExpr : String.valueOf(dynamicBase));
+                baseEdit.setResponder(s -> {
+                    String trimmed = s.trim();
+                    dynamicBaseExpr = trimmed;
+                    try { dynamicBase = Double.parseDouble(trimmed); } catch (Exception ignored) {}
+                });
                 addRenderableWidget(baseEdit);
                 y += rowHeight + spacing;
                 addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 1);
@@ -884,19 +896,45 @@ public class EffectEditScreen extends Screen {
                 addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "d", 3);
                 y += rowHeight + spacing;
             }
+            case SINE, TRIANGLE, SQUARE, SAWTOOTH -> {
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "a", 0);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "T", 1);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "p", 2);
+                y += rowHeight + spacing;
+                addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 3);
+                y += rowHeight + spacing;
+            }
         }
 
         // 裁剪范围
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.clip_min"), font)); y += rowHeight;
-        dynamicClipMinEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight, Component.literal(""));
-        dynamicClipMinEdit.setValue(Double.isNaN(dynamicClipMinX) ? "" : String.valueOf(dynamicClipMinX));
+        EditBox dynamicClipMinEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight, Component.literal(""));
+        dynamicClipMinEdit.setMaxLength(5201314);
+        dynamicClipMinEdit.setValue(!dynamicClipMinExpr.isEmpty() ? dynamicClipMinExpr
+                : (Double.isNaN(dynamicClipMinX) ? "" : String.valueOf(dynamicClipMinX)));
+        dynamicClipMinEdit.setResponder(s -> {
+            String trimmed = s.trim();
+            dynamicClipMinExpr = trimmed;
+            if (trimmed.isEmpty()) dynamicClipMinX = Double.NaN;
+            else { try { dynamicClipMinX = Double.parseDouble(trimmed); } catch (Exception ignored) {} }
+        });
         addRenderableWidget(dynamicClipMinEdit); y += rowHeight + spacing;
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.clip_max"), font)); y += rowHeight;
-        dynamicClipMaxEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight, Component.literal(""));
-        dynamicClipMaxEdit.setValue(Double.isNaN(dynamicClipMaxX) ? "" : String.valueOf(dynamicClipMaxX));
+        EditBox dynamicClipMaxEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight, Component.literal(""));
+        dynamicClipMaxEdit.setMaxLength(5201314);
+        dynamicClipMaxEdit.setValue(!dynamicClipMaxExpr.isEmpty() ? dynamicClipMaxExpr
+                : (Double.isNaN(dynamicClipMaxX) ? "" : String.valueOf(dynamicClipMaxX)));
+        dynamicClipMaxEdit.setResponder(s -> {
+            String trimmed = s.trim();
+            dynamicClipMaxExpr = trimmed;
+            if (trimmed.isEmpty()) dynamicClipMaxX = Double.NaN;
+            else { try { dynamicClipMaxX = Double.parseDouble(trimmed); } catch (Exception ignored) {} }
+        });
         addRenderableWidget(dynamicClipMaxEdit); y += rowHeight + spacing;
 
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
@@ -927,14 +965,28 @@ public class EffectEditScreen extends Screen {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, 20, rowHeight,
                 Component.literal(label + ":"), font));
         EditBox edit = new EditBox(font, centerX - totalWidth / 2 + 22, y, totalWidth - 22, rowHeight, Component.literal(label));
-        if (index < dynamicCoeffs.length) {
+        edit.setMaxLength(5201314);
+        // 反填优先表达式字段（玩家填过 %属性id% 或算式则原样显示），否则用数值字段
+        String expr = index < dynamicCoeffExprs.length ? dynamicCoeffExprs[index] : null;
+        if (expr != null && !expr.isBlank()) {
+            edit.setValue(expr);
+        } else if (index < dynamicCoeffs.length) {
             edit.setValue(String.valueOf(dynamicCoeffs[index]));
         } else {
             edit.setValue("0");
         }
         edit.setResponder(s -> {
+            String trimmed = s.trim();
+            // 原始字符串始终存入表达式字段（支持 %属性id% / 算式 / 纯数字）
+            if (index >= dynamicCoeffExprs.length) {
+                String[] newArr = new String[index + 1];
+                System.arraycopy(dynamicCoeffExprs, 0, newArr, 0, dynamicCoeffExprs.length);
+                dynamicCoeffExprs = newArr;
+            }
+            dynamicCoeffExprs[index] = trimmed;
+            // 纯数字时同步数值字段（保留老结构兼容）；其他输入只走表达式字段
             try {
-                double val = Double.parseDouble(s);
+                double val = Double.parseDouble(trimmed);
                 if (index >= dynamicCoeffs.length) {
                     double[] newArr = new double[index + 1];
                     System.arraycopy(dynamicCoeffs, 0, newArr, 0, dynamicCoeffs.length);
@@ -1113,9 +1165,13 @@ public class EffectEditScreen extends Screen {
                 dyn.variableType = dynamicVariable;
                 dyn.formulaType = dynamicFormula;
                 dyn.coefficients = dynamicCoeffs.clone();
+                dyn.coeffExpressions = buildCoeffExpressions();
                 dyn.base = dynamicBase;
-                dyn.clipMinX = parseDouble(dynamicClipMinEdit);
-                dyn.clipMaxX = parseDouble(dynamicClipMaxEdit);
+                dyn.baseExpression = dynamicBaseExpr.isEmpty() ? null : dynamicBaseExpr;
+                dyn.clipMinX = dynamicClipMinX;
+                dyn.clipMaxX = dynamicClipMaxX;
+                dyn.clipMinExpression = dynamicClipMinExpr.isEmpty() ? null : dynamicClipMinExpr;
+                dyn.clipMaxExpression = dynamicClipMaxExpr.isEmpty() ? null : dynamicClipMaxExpr;
                 dyn.sourceAttributeId = dynamicSourceAttributeId;
                 dyn.scoreboardObjective = dynamicScoreboardObjective;
                 dyn.sourcePotionId = dynamicSourcePotionId;
@@ -1135,9 +1191,16 @@ public class EffectEditScreen extends Screen {
         return e;
     }
 
-    private double parseDouble(EditBox edit) {
-        if (edit == null) return Double.NaN;
-        try { return Double.parseDouble(edit.getValue()); } catch (Exception ignored) { return Double.NaN; }
+    private String[] buildCoeffExpressions() {
+        int len = Math.max(dynamicCoeffs.length, dynamicCoeffExprs.length);
+        boolean any = false;
+        String[] arr = new String[len];
+        for (int i = 0; i < len; i++) {
+            String expr = i < dynamicCoeffExprs.length ? dynamicCoeffExprs[i] : null;
+            arr[i] = (expr != null && !expr.isBlank()) ? expr.trim() : null;
+            if (arr[i] != null) any = true;
+        }
+        return any ? arr : null;
     }
 
     @Override

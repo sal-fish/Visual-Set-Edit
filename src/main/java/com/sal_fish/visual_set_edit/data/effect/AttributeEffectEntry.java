@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraftforge.registries.ForgeRegistries;
 import java.util.ArrayList;
 import java.util.List;
@@ -168,8 +169,13 @@ public class AttributeEffectEntry extends EffectEntry {
         Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(attributeId));
         if (attr == null) return;
         UUID id = UUID.fromString(uniqueId);
+        boolean isMaxHealth = attr == Attributes.MAX_HEALTH;
+        float oldMax = isMaxHealth ? entity.getMaxHealth() : 0;
+        float oldHealth = isMaxHealth ? entity.getHealth() : 0;
         AttributeHelper.applyModifier(entity, attr, id, "VSE " + attributeId, amount, operation);
-        if (entity.getHealth() > entity.getMaxHealth()) {
+        if (isMaxHealth) {
+            AttributeHelper.preserveHealthRatio(entity, oldMax, oldHealth);
+        } else if (entity.getHealth() > entity.getMaxHealth()) {
             entity.setHealth(entity.getMaxHealth());
         }
     }
@@ -178,8 +184,14 @@ public class AttributeEffectEntry extends EffectEntry {
         Attribute attr = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(attributeId));
         if (attr != null) {
             UUID id = UUID.fromString(uniqueId);
+            boolean isMaxHealth = attr == Attributes.MAX_HEALTH;
+            float oldMax = isMaxHealth ? entity.getMaxHealth() : 0;
+            float oldHealth = isMaxHealth ? entity.getHealth() : 0;
             AttributeHelper.removeModifier(entity, attr, id);
-            if (entity.getHealth() > entity.getMaxHealth()) {
+            if (isMaxHealth) {
+                // 对称保比例：摘除后同样按新旧上限等比缩放，避免把健康玩家按失真比例压死、也避免残血白嫖回满
+                AttributeHelper.preserveHealthRatio(entity, oldMax, oldHealth);
+            } else if (entity.getHealth() > entity.getMaxHealth()) {
                 entity.setHealth(entity.getMaxHealth());
             }
         }

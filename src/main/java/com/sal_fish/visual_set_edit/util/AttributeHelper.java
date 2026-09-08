@@ -20,4 +20,13 @@ public class AttributeHelper {
         AttributeInstance instance = entity.getAttribute(attribute);
         if (instance != null) instance.removeModifier(id);
     }
+
+    public static void preserveHealthRatio(LivingEntity entity, float oldMaxHealth, float oldHealth) {
+        if (!entity.isAlive()) return;
+        float newMax = entity.getMaxHealth();
+        if (oldMaxHealth > 0 && newMax > 0 && newMax != oldMaxHealth) {
+            float scaled = oldHealth * newMax / oldMaxHealth;
+            entity.setHealth(Math.min(Math.max(scaled, 1.0f), newMax));
+        }
+    }
 }
