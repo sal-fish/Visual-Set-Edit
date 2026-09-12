@@ -370,7 +370,7 @@
   "visual_set_edit.gui.effect.dynamic_attribute.var.SCOREBOARD_VALUE": "计分板分数",
   "visual_set_edit.gui.scoreboard_register.title": "计分板注册",
   "visual_set_edit.gui.scoreboard_register.name": "计分板名称",
-  "visual_set_edit.gui.scoreboard_register.name_tooltip": "只能输入小写字母、数字和下划线",
+  "visual_set_edit.gui.scoreboard_register.name_tooltip": "可用大小写字母、数字、下划线、点、加号、减号",
   "visual_set_edit.gui.scoreboard_register.button": "计分板注册",
   "visual_set_edit.gui.select_scoreboard_objective": "选择计分板",
   "visual_set_edit.gui.effect.dynamic_attribute.scoreboard_objective": "计分板目标",
@@ -379,5 +379,8 @@
   "visual_set_edit.gui.target_filter.entity_tags": "实体 Tag (逗号分隔)",
   "visual_set_edit.gui.effect.command.trigger.on_kill_specific": "击杀指定生物时",
   "visual_set_edit.gui.effect.dynamic_attribute.var.POTION_LEVEL": "药水等级",
-  "visual_set_edit.gui.effect.dynamic_attribute.source_potion": "源药水效果"
+  "visual_set_edit.gui.effect.dynamic_attribute.source_potion": "源药水效果",
+  "visual_set_edit.gui.condition.type.scoreboard": "计分板",
+  "visual_set_edit.gui.condition.scoreboard.objective": "计分板名称",
+  "visual_set_edit.condition.scoreboard.display": "计分板 %1$s %2$s %3$s"
 }

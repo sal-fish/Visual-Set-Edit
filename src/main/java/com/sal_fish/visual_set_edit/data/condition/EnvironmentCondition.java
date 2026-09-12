@@ -2,6 +2,7 @@ package com.sal_fish.visual_set_edit.data.condition;
 
 import com.google.gson.annotations.Expose;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -18,6 +19,11 @@ public class EnvironmentCondition extends Condition {
     public boolean test(LivingEntity entity) {
         Level level = entity.level();
         BlockPos pos = entity.blockPosition();
+        // value 含成对 %占位符% 时走表达式分支
+        if (ExpressionEvaluator.looksLikeExpression(value)) {
+            double target = ExpressionEvaluator.resolveThreshold(entity, value);
+            return Double.isFinite(target) && testDynamic(entity, level, pos, target);
+        }
         try {
         return switch (field) {
             case "LIGHT_SKY" -> compare(level.getBrightness(LightLayer.SKY, pos), comparator, Integer.parseInt(value));
@@ -52,6 +58,22 @@ public class EnvironmentCondition extends Condition {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    // 仅数值型字段
+    private boolean testDynamic(LivingEntity entity, Level level, BlockPos pos, double target) {
+        int t = (int) target;
+        return switch (field) {
+            case "LIGHT_SKY" -> compare(level.getBrightness(LightLayer.SKY, pos), comparator, t);
+            case "LIGHT_BLOCK" -> compare(level.getBrightness(LightLayer.BLOCK, pos), comparator, t);
+            case "Y" -> compare(pos.getY(), comparator, t);
+            case "MOON_PHASE" -> compare(level.getMoonPhase(), comparator, t);
+            case "TIME" -> compare((int) (level.getDayTime() % 24000), comparator, t);
+            case "TEMPERATURE" -> compare((int) (level.getBiome(pos).get().getBaseTemperature() * 100), comparator, t);
+            case "L2H_CHUNK_DIFFICULTY" -> compare(IntegrationManager.getL2ChunkDifficulty(entity), comparator, t);
+            case "L2H_PLAYER_DIFFICULTY" -> compare(IntegrationManager.getL2PlayerDifficulty(entity), comparator, t);
+            default -> false;
+        };
     }
 
     private boolean compare(int actual, String comp, int val) {

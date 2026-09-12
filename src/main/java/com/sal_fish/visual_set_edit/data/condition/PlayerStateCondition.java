@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.data.condition;
 
 import com.google.gson.annotations.Expose;
+import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.LivingEntity;
@@ -24,6 +25,10 @@ public class PlayerStateCondition extends Condition {
 
     @Override
     public boolean test(LivingEntity entity) {
+        if (ExpressionEvaluator.looksLikeExpression(value)) {
+            double target = ExpressionEvaluator.resolveThreshold(entity, value);
+            return Double.isFinite(target) && testDynamic(entity, target);
+        }
         try {
             return switch (field) {
                 case "HEALTH" -> comparePercentageOrAbsolute(
@@ -92,6 +97,21 @@ public class PlayerStateCondition extends Condition {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    // 仅数值型字段，按绝对值比较（不再套 "50%" 百分比语义）
+    private boolean testDynamic(LivingEntity entity, double target) {
+        float t = (float) target;
+        return switch (field) {
+            case "HEALTH" -> compareFloat(entity.getHealth(), comparator, t);
+            case "FOOD" -> entity instanceof Player player &&
+                    compareFloat(player.getFoodData().getFoodLevel(), comparator, t);
+            case "ARMOR" -> compareFloat(entity.getArmorValue(), comparator, t);
+            case "XP_LEVEL" -> entity instanceof Player player &&
+                    compareFloat(player.experienceLevel, comparator, t);
+            case "FALL_DISTANCE" -> compareFloat(entity.fallDistance, comparator, t);
+            default -> false;
+        };
     }
 
     //工具方法

@@ -24,30 +24,23 @@ public class ScoreboardObjectiveManager {
         return Collections.unmodifiableList(objectives);
     }
 
-    /**
-     * 计分板目标名称是否合法：只允许小写字母、数字、下划线。
-     * 这是本模组约定的命名规则；不合规的名称在 GUI 列表/选择器中会因
-     * ResourceLocation("vse", name) 校验失败直接抛异常导致客户端崩溃，
-     * 因此入口处必须拦截。
-     */
     public static boolean isValidName(String name) {
         if (name == null || name.isEmpty()) return false;
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
-            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
-                return false;
-            }
+            boolean allowed = (c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '_' || c == '.' || c == '+' || c == '-';
+            if (!allowed) return false;
         }
         return true;
     }
 
-    /**
-     * 添加计分板目标。名称不合规时拒绝添加（不崩溃、不入列），返回 false。
-     */
     public static boolean addObjective(String name) {
         if (!isValidName(name)) {
             VisualSetEdit.LOGGER.warn(
-                    "Ignored invalid scoreboard objective name '{}' (only lowercase letters, digits and underscore are allowed)",
+                    "Ignored invalid scoreboard objective name '{}' (only letters, digits, '_', '.', '+' and '-' are allowed)",
                     name);
             return false;
         }
@@ -84,7 +77,7 @@ public class ScoreboardObjectiveManager {
                 if (name == null) continue;
                 if (!isValidName(name)) {
                     VisualSetEdit.LOGGER.warn(
-                            "Removed invalid scoreboard objective name '{}' from config (only lowercase letters, digits and underscore are allowed)",
+                            "Removed invalid scoreboard objective name '{}' from config (only letters, digits, '_', '.', '+' and '-' are allowed)",
                             name);
                     continue;
                 }

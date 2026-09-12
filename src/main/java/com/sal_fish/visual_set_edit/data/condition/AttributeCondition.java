@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.data.condition;
 
 import com.google.gson.annotations.Expose;
+import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -11,6 +12,7 @@ public class AttributeCondition extends Condition {
     @Expose public String attributeId;   // 属性ID
     @Expose public String comparator;    // EQ, GT, LT, GTE, LTE
     @Expose public double value;         // 比较目标值
+    @Expose public String valueExpression = null; // 动态阈值表达式，含成对 %占位符% 时优先于 value
 
     public AttributeCondition() {
         this.type = "attribute";
@@ -28,10 +30,16 @@ public class AttributeCondition extends Condition {
         AttributeInstance instance = entity.getAttribute(attribute);
         if (instance == null) return false;
         double actual = instance.getValue();
-        return compare(actual, comparator, value);
+        return compare(actual, comparator, targetValue(entity));
+    }
+
+    private double targetValue(LivingEntity entity) {
+        if (valueExpression == null || valueExpression.isBlank()) return value;
+        return ExpressionEvaluator.resolveThreshold(entity, valueExpression);
     }
 
     private boolean compare(double actual, String comp, double target) {
+        if (!Double.isFinite(target)) return false; // 含 NEQ，一并拦截 NaN
         return switch (comp) {
             case "EQ" -> actual == target;
             case "GT" -> actual > target;
@@ -48,6 +56,7 @@ public class AttributeCondition extends Condition {
         if (attributeId == null) return "Attribute";
         Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(ResourceLocation.tryParse(attributeId));
         String name = attribute != null ? net.minecraft.network.chat.Component.translatable(attribute.getDescriptionId()).getString() : attributeId;
-        return name + " " + comparator + " " + value;
+        String target = (valueExpression != null && !valueExpression.isBlank()) ? valueExpression : String.valueOf(value);
+        return name + " " + comparator + " " + target;
     }
 }

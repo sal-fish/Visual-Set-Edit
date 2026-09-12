@@ -4,6 +4,7 @@ import com.sal_fish.visual_set_edit.data.condition.*;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
 import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -43,12 +44,21 @@ public class ConditionEditScreen extends Screen {
     private String isField = "MANA";
     private String isComparator = "EQ";
     private double isValue = 0;
+    private String isValueRaw = null;   // 数值框原始文本；null = 未编辑
 
     private String attrId = "";
     private String attrComparator = "GTE";
     private double attrValue = 0;
+    private String attrValueRaw = null;
     private EditBox attrValueEdit;
     private Button selectAttrButton;
+
+    private String sbObjective = "";
+    private String sbComparator = "GTE";
+    private double sbValue = 0;
+    private String sbValueRaw = null;
+    private EditBox sbValueEdit;
+    private Button selectSbButton;
 
     private EditBox valueEdit, invDurMinEdit, invDurMaxEdit, isValueEdit;
     private Button invSlotButton, invItemButton;
@@ -100,15 +110,27 @@ public class ConditionEditScreen extends Screen {
             isField = is.field;
             isComparator = is.comparator;
             isValue = is.value;
+            isValueRaw = rawOf(is.valueExpression, is.value);
         } else if (c instanceof AttributeCondition attrCond) {
             attrId = attrCond.attributeId;
             attrComparator = attrCond.comparator;
             attrValue = attrCond.value;
+            attrValueRaw = rawOf(attrCond.valueExpression, attrCond.value);
+        } else if (c instanceof ScoreboardCondition sbCond) {
+            sbObjective = sbCond.objective != null ? sbCond.objective : "";
+            sbComparator = sbCond.comparator != null ? sbCond.comparator : "GTE";
+            sbValue = sbCond.value;
+            sbValueRaw = rawOf(sbCond.valueExpression, sbCond.value);
         } else if (c instanceof CompositeCondition comp) {
             compOp = comp.op;
             children.clear();
             if (comp.children != null) children.addAll(comp.children);
         }
+    }
+
+    // 优先表达式，其次固定值
+    private static String rawOf(String expression, double value) {
+        return (expression != null && !expression.isBlank()) ? expression : String.valueOf(value);
     }
 
     @Override
@@ -125,7 +147,7 @@ public class ConditionEditScreen extends Screen {
         y += rowHeight;
         CycleButton<String> typeButton = CycleButton.<String>builder(s ->
                         Component.translatable("visual_set_edit.gui.condition.type." + s))
-                .withValues("environment", "player_state", "inventory", "iron_spell", "attribute", "composite")
+                .withValues("environment", "player_state", "inventory", "iron_spell", "attribute", "scoreboard", "composite")
                 .displayOnlyValue()
                 .withInitialValue(condType)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -142,6 +164,7 @@ public class ConditionEditScreen extends Screen {
             case "iron_spell" -> buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
             case "composite" -> buildCompositeFields(centerX, y, totalWidth, rowHeight, spacing);
             case "attribute" -> buildAttributeConditionFields(centerX, y, totalWidth, rowHeight, spacing);
+            case "scoreboard" -> buildScoreboardConditionFields(centerX, y, totalWidth, rowHeight, spacing);
         }
     }
 
@@ -469,7 +492,9 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight;
             isValueEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.value"));
-            isValueEdit.setValue(String.valueOf(isValue));
+            isValueEdit.setMaxLength(5201314);
+            isValueEdit.setValue(isValueRaw != null ? isValueRaw : String.valueOf(isValue));
+            isValueEdit.setResponder(s -> isValueRaw = s);
             addRenderableWidget(isValueEdit);
             y += rowHeight + spacing;
         }
@@ -513,11 +538,54 @@ public class ConditionEditScreen extends Screen {
         attrValueEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.value"));
         attrValueEdit.setMaxLength(5201314);
-        attrValueEdit.setValue(String.valueOf(attrValue));
-        attrValueEdit.setResponder(s -> {
-            try { attrValue = Double.parseDouble(s); } catch (Exception ignored) {}
-        });
+        attrValueEdit.setValue(attrValueRaw != null ? attrValueRaw : String.valueOf(attrValue));
+        attrValueEdit.setResponder(s -> attrValueRaw = s);
         addRenderableWidget(attrValueEdit);
+        y += rowHeight + spacing;
+
+        y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
+        saveButton(centerX, y, totalWidth, rowHeight);
+    }
+
+    //计分板条件
+    private void buildScoreboardConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        // 计分板选择按钮
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.scoreboard.objective"), font));
+        y += rowHeight;
+        selectSbButton = Button.builder(getSbButtonText(), btn -> {
+            assert minecraft != null;
+            minecraft.setScreen(new ScoreboardObjectiveListScreen(this, name -> {
+                sbObjective = name;
+                selectSbButton.setMessage(getSbButtonText());
+            }));
+        }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
+        addRenderableWidget(selectSbButton);
+        y += rowHeight + spacing;
+
+        // 比较符
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.comparator"), font));
+        y += rowHeight;
+        CycleButton<String> comparatorBtn = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+                .withValues("EQ", "NEQ", "GT", "LT", "GTE", "LTE")
+                .displayOnlyValue()
+                .withInitialValue(sbComparator)
+                .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.condition.comparator"), (btn, val) -> sbComparator = val);
+        addRenderableWidget(comparatorBtn);
+        y += rowHeight + spacing;
+
+        // 数值输入
+        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"), font));
+        y += rowHeight;
+        sbValueEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"));
+        sbValueEdit.setMaxLength(5201314);
+        sbValueEdit.setValue(sbValueRaw != null ? sbValueRaw : String.valueOf(sbValue));
+        sbValueEdit.setResponder(s -> sbValueRaw = s);
+        addRenderableWidget(sbValueEdit);
         y += rowHeight + spacing;
 
         y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
@@ -644,15 +712,40 @@ public class ConditionEditScreen extends Screen {
                 IronSpellCondition is = new IronSpellCondition();
                 is.field = isField;
                 is.comparator = isComparator;
-                try { is.value = Double.parseDouble(isValueEdit != null ? isValueEdit.getValue() : "0"); } catch(Exception ignored) {}
+                String raw = (isValueRaw != null ? isValueRaw : String.valueOf(isValue)).trim();
+                if (ExpressionEvaluator.looksLikeExpression(raw)) {
+                    is.valueExpression = raw;
+                    is.value = isValue;
+                } else {
+                    try { is.value = Double.parseDouble(raw); } catch (Exception ignored) {}
+                }
                 yield is;
             }
             case "attribute" -> {
                 AttributeCondition ac = new AttributeCondition();
                 ac.attributeId = attrId;
                 ac.comparator = attrComparator;
-                try { ac.value = Double.parseDouble(attrValueEdit.getValue()); } catch (Exception ignored) {}
+                String raw = (attrValueRaw != null ? attrValueRaw : String.valueOf(attrValue)).trim();
+                if (ExpressionEvaluator.looksLikeExpression(raw)) {
+                    ac.valueExpression = raw;
+                    ac.value = attrValue;
+                } else {
+                    try { ac.value = Double.parseDouble(raw); } catch (Exception ignored) {}
+                }
                 yield ac;
+            }
+            case "scoreboard" -> {
+                ScoreboardCondition sbc = new ScoreboardCondition();
+                sbc.objective = sbObjective;
+                sbc.comparator = sbComparator;
+                String raw = (sbValueRaw != null ? sbValueRaw : String.valueOf(sbValue)).trim();
+                if (ExpressionEvaluator.looksLikeExpression(raw)) {
+                    sbc.valueExpression = raw;
+                    sbc.value = sbValue;
+                } else {
+                    try { sbc.value = Double.parseDouble(raw); } catch (Exception ignored) {}
+                }
+                yield sbc;
             }
             case "composite" -> {
                 CompositeCondition cc = new CompositeCondition();
@@ -714,6 +807,13 @@ public class ConditionEditScreen extends Screen {
             }
         }
         return Component.literal(attrId);
+    }
+
+    private Component getSbButtonText() {
+        if (sbObjective == null || sbObjective.isEmpty()) {
+            return Component.translatable("visual_set_edit.gui.click_select_item");
+        }
+        return Component.literal(sbObjective);
     }
 
     @Override

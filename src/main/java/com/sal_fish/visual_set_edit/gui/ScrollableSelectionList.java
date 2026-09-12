@@ -72,16 +72,28 @@ public class ScrollableSelectionList extends ObjectSelectionList<ScrollableSelec
         private final Component text;
         private final ResourceLocation id;
         @Nullable
+        private final String rawId;
+        @Nullable
         private final ItemStack icon;
 
         public Entry(Component text, ResourceLocation id, @Nullable ItemStack icon) {
+            this(text, id, null, icon);
+        }
+
+        public Entry(Component text, ResourceLocation id, @Nullable String rawId, @Nullable ItemStack icon) {
             this.text = text;
             this.id = id;
+            this.rawId = rawId;
             this.icon = icon;
         }
 
         public ResourceLocation getId() {
             return id;
+        }
+
+        /** 原始字符串 ID；未显式提供时回退为 id 的 path，保持既有调用点行为不变。 */
+        public String getRawId() {
+            return rawId != null ? rawId : id.getPath();
         }
 
         @Override
