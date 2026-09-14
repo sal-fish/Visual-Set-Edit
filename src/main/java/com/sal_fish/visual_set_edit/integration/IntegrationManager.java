@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.integration;
 
 import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
+import com.sal_fish.visual_set_edit.util.VseLog;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -96,13 +97,17 @@ public class IntegrationManager {
             Method init = findMethod("spellCompatInit",
                     "com.sal_fish.visual_set_edit.integration.SpellCompatHandler", "init");
             if (init != null) {
-                try { init.invoke(null); } catch (Exception ignored) {}
+                try { init.invoke(null); } catch (Exception e) {
+                    VseLog.warnOnce("vse.spellCompatInit", "[VSE] SpellCompatHandler.init 调用失败", e);
+                }
             }
             // 套装法术注入铁魔法轮盘
             Method wheelInit = findMethod("spellWheelInit",
                     "com.sal_fish.visual_set_edit.integration.SpellWheelCompatHandler", "init");
             if (wheelInit != null) {
-                try { wheelInit.invoke(null); } catch (Exception ignored) {}
+                try { wheelInit.invoke(null); } catch (Exception e) {
+                    VseLog.warnOnce("vse.spellWheelInit", "[VSE] SpellWheelCompatHandler.init 调用失败", e);
+                }
             }
         }
     }
@@ -114,7 +119,9 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.L2CompatHandler",
                 "applyAttackTarget", LivingEntity.class, LivingEntity.class, entry.getClass());
         if (m == null) return;
-        try { m.invoke(null, attacker, target, entry); } catch (Exception ignored) {}
+        try { m.invoke(null, attacker, target, entry); } catch (Exception e) {
+            VseLog.warnOnce("vse.l2Apply", "[VSE] L2CompatHandler.applyAttackTarget 调用失败", e);
+        }
     }
 
     public static void tickL2Traits(LivingEntity entity) {
@@ -123,7 +130,9 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.L2CompatHandler",
                 "tickTemporaryTraits", LivingEntity.class);
         if (m == null) return;
-        try { m.invoke(null, entity); } catch (Exception ignored) {}
+        try { m.invoke(null, entity); } catch (Exception e) {
+            VseLog.warnOnce("vse.l2Tick", "[VSE] L2CompatHandler.tickTemporaryTraits 调用失败", e);
+        }
     }
 
     //GUI 工厂方法
@@ -178,7 +187,9 @@ public class IntegrationManager {
                 String componentId = (String) componentIdMethod.invoke(spell);
                 return Component.translatable(componentId).getString();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            VseLog.warnOnce("vse.spellDisplayName", "[VSE] 读取铁魔法法术显示名失败: " + spellId, e);
+        }
         return null;
     }
 
@@ -209,7 +220,9 @@ public class IntegrationManager {
                 Object desc = descMethod.invoke(trait);
                 return ((Component) desc).getString();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            VseLog.warnOnce("vse.l2TraitDisplayName", "[VSE] 读取莱特兰词条显示名失败: " + traitId, e);
+        }
         return null;
     }
 
@@ -219,7 +232,9 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.L2CompatHandler",
                 "getChunkDifficulty", LivingEntity.class);
         if (m == null) return 0;
-        try { return (int) m.invoke(null, entity); } catch (Exception ignored) {}
+        try { return (int) m.invoke(null, entity); } catch (Exception e) {
+            VseLog.warnOnce("vse.l2ChunkDifficulty", "[VSE] L2CompatHandler.getChunkDifficulty 调用失败", e);
+        }
         return 0;
     }
 
@@ -229,7 +244,9 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.L2CompatHandler",
                 "getPlayerDifficulty", LivingEntity.class);
         if (m == null) return 0;
-        try { return (int) m.invoke(null, entity); } catch (Exception ignored) {}
+        try { return (int) m.invoke(null, entity); } catch (Exception e) {
+            VseLog.warnOnce("vse.l2PlayerDifficulty", "[VSE] L2CompatHandler.getPlayerDifficulty 调用失败", e);
+        }
         return 0;
     }
 
@@ -241,7 +258,9 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.L2CompatHandler",
                 "modifyPlayerDifficulty", LivingEntity.class, int.class);
         if (m == null) return;
-        try { m.invoke(null, entity, amount); } catch (Exception ignored) {}
+        try { m.invoke(null, entity, amount); } catch (Exception e) {
+            VseLog.warnOnce("vse.l2ModifyPlayerDifficulty", "[VSE] L2CompatHandler.modifyPlayerDifficulty 调用失败", e);
+        }
     }
 
     public static void cleanupCuriosSlotsOnClone(LivingEntity oldEntity, LivingEntity newEntity) {
@@ -250,6 +269,8 @@ public class IntegrationManager {
                 "com.sal_fish.visual_set_edit.integration.CuriosIntegration",
                 "cleanupSlotModifiersOnClone", LivingEntity.class, LivingEntity.class);
         if (m == null) return;
-        try { m.invoke(null, oldEntity, newEntity); } catch (Exception ignored) {}
+        try { m.invoke(null, oldEntity, newEntity); } catch (Exception e) {
+            VseLog.warnOnce("vse.curiosCleanupOnClone", "[VSE] CuriosIntegration.cleanupSlotModifiersOnClone 调用失败", e);
+        }
     }
 }

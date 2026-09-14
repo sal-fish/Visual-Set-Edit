@@ -2,6 +2,7 @@ package com.sal_fish.visual_set_edit.lang;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.sal_fish.visual_set_edit.util.VseLog;
 import net.minecraft.client.Minecraft;
 import net.minecraft.locale.Language;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -20,7 +21,7 @@ public class CustomLanguageLoader {
                 Language.getInstance().getLanguageData().putAll(map);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            VseLog.warnOnce("vse.customLangLoad", "[VSE] 自定义语言文件加载失败", e);
         }
     }
 }
