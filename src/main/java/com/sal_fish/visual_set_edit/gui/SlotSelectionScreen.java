@@ -2,6 +2,7 @@ package com.sal_fish.visual_set_edit.gui;
 
 import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -63,7 +64,6 @@ public class SlotSelectionScreen extends Screen {
     private void updateList(String filter) {
         list.clearAllEntries();
         entrySlotMap.clear();
-        String lowerFilter = filter.toLowerCase();
 
         List<String> allSlots = new ArrayList<>();
 
@@ -88,7 +88,7 @@ public class SlotSelectionScreen extends Screen {
         allSlots.sort(Comparator.naturalOrder());
 
         for (String slot : allSlots) {
-            if (!filter.isEmpty() && !slot.toLowerCase().contains(lowerFilter)) continue;
+            if (!filter.isEmpty() && !SearchUtil.contains(slot, filter)) continue;
             Component slotName;
             if (slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
                 slotName = Component.translatable("visual_set_edit.slot.any");

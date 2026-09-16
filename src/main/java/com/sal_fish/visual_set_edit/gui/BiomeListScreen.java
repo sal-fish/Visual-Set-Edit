@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -41,8 +42,6 @@ public class BiomeListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
-
         List<ResourceLocation> cached = RegistryListHelper.getRegistryIds("biome");
         if (cached.isEmpty() && !requested) {
             RegistryListHelper.requestIfNeeded("biome");
@@ -59,7 +58,7 @@ public class BiomeListScreen extends Screen {
         cached.stream()
                 .sorted(ResourceLocation::compareNamespaced)
                 .forEach(loc -> {
-                    if (!filter.isEmpty() && !loc.toString().toLowerCase().contains(lowerFilter)) return;
+                    if (!filter.isEmpty() && !SearchUtil.contains(loc.toString(), filter)) return;
 
                     String translationKey = "biome." + loc.getNamespace() + "." + loc.getPath();
                     Component displayName = Component.translatable(translationKey);

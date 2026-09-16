@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import dev.xkmc.l2hostility.content.traits.base.MobTrait;
 import dev.xkmc.l2hostility.init.registrate.LHTraits;
 import net.minecraft.client.gui.GuiGraphics;
@@ -45,7 +46,7 @@ public class L2TraitListScreen extends Screen {
         IForgeRegistry<MobTrait> registry = LHTraits.TRAITS.get();
         registry.getValues().stream()
                 .sorted(Comparator.comparing(t -> t.getDesc().getString()))
-                .filter(trait -> filter.isEmpty() || trait.getDesc().getString().toLowerCase().contains(filter.toLowerCase()))
+                .filter(trait -> SearchUtil.contains(trait.getDesc().getString(), filter))
                 .forEach(trait -> {
                     ResourceLocation id = registry.getKey(trait);
                     if (id != null) {

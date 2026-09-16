@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -46,7 +47,6 @@ public class MobEffectListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
         Language lang = Language.getInstance();
 
         ForgeRegistries.MOB_EFFECTS.getValues().stream()
@@ -59,7 +59,7 @@ public class MobEffectListScreen extends Screen {
                     }
                     String translatedName = Component.translatable(effect.getDescriptionId()).getString();
 
-                    if (registeredName != null && (filter.isEmpty() || registeredName.toLowerCase().contains(lowerFilter) || translatedName.toLowerCase().contains(lowerFilter))) {
+                    if (registeredName != null && (SearchUtil.contains(registeredName, filter) || SearchUtil.contains(translatedName, filter))) {
                         list.addEntry(new ScrollableSelectionList.Entry(
                                 Component.literal(translatedName + " (" + registeredName + ")"),
                                 rl, null

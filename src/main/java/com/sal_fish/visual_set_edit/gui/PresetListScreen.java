@@ -9,6 +9,7 @@ import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.network.C2SUpdatePresetPacket;
 import com.sal_fish.visual_set_edit.network.VsePacketHandler;
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -231,7 +232,7 @@ public class PresetListScreen extends Screen {
     }
 
     private static boolean contains(String text, String q) {
-        return text != null && text.toLowerCase(Locale.ROOT).contains(q);
+        return text != null && SearchUtil.contains(text, q);
     }
 
     private static boolean matchesAny(List<String> lines, String q) {

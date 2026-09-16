@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.gui;
 
 import com.sal_fish.visual_set_edit.config.ScoreboardObjectiveManager;
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -48,9 +49,8 @@ public class ScoreboardObjectiveListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
         for (String name : collectObjectives()) {
-            if (!filter.isEmpty() && !name.toLowerCase().contains(lowerFilter)) continue;
+            if (!filter.isEmpty() && !SearchUtil.contains(name, filter)) continue;
             list.addEntry(new ScrollableSelectionList.Entry(
                     Component.literal(name),
                     ENTRY_ID,

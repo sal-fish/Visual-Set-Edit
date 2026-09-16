@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -42,8 +43,6 @@ public class DimensionListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
-
         List<ResourceLocation> cached = RegistryListHelper.getRegistryIds("dimension");
         if (cached.isEmpty() && !requested) {
             RegistryListHelper.requestIfNeeded("dimension");
@@ -61,7 +60,7 @@ public class DimensionListScreen extends Screen {
                 .sorted(ResourceLocation::compareNamespaced)
                 .forEach(dimLocation -> {
                     String dimId = dimLocation.toString();
-                    if (!filter.isEmpty() && !dimId.toLowerCase().contains(lowerFilter)) return;
+                    if (!filter.isEmpty() && !SearchUtil.contains(dimId, filter)) return;
 
                     String translationKey = "dimension." + dimLocation.getNamespace() + "." + dimLocation.getPath();
                     Component displayName = Component.translatable(translationKey);

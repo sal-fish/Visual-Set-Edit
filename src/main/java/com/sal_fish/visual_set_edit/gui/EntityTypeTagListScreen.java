@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -44,13 +45,11 @@ public class EntityTypeTagListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
-
         Objects.requireNonNull(ForgeRegistries.ENTITY_TYPES.tags()).getTagNames()
                 .sorted(Comparator.comparing(tagKey -> tagKey.location().toString()))
                 .forEach(tagKey -> {
                     String tagId = tagKey.location().toString();
-                    if (!filter.isEmpty() && !tagId.toLowerCase().contains(lowerFilter)) return;
+                    if (!filter.isEmpty() && !SearchUtil.contains(tagId, filter)) return;
                     list.addEntry(new ScrollableSelectionList.Entry(
                             Component.literal(tagId),
                             tagKey.location(),

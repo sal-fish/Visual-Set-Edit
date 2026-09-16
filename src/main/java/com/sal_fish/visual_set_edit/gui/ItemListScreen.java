@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -47,8 +48,6 @@ public class ItemListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
-
         ForgeRegistries.ITEMS.getKeys().stream()
                 .sorted(Comparator.comparing(ResourceLocation::toString))
                 .forEach(rl -> {
@@ -58,8 +57,8 @@ public class ItemListScreen extends Screen {
                     if (!filter.isEmpty()) {
                         String registeredName = rl.toString();
                         String translatedName = Component.translatable(item.getDescriptionId()).getString();
-                        if (!registeredName.toLowerCase().contains(lowerFilter)
-                                && !translatedName.toLowerCase().contains(lowerFilter)) {
+                        if (!SearchUtil.contains(registeredName, filter)
+                                && !SearchUtil.contains(translatedName, filter)) {
                             return;
                         }
                     }

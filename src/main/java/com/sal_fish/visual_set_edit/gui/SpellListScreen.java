@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.util.SearchUtil;
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import net.minecraft.client.gui.GuiGraphics;
@@ -47,8 +48,6 @@ public class SpellListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
-        String lowerFilter = filter.toLowerCase();
-
         IForgeRegistry<AbstractSpell> spellRegistry = SpellRegistry.REGISTRY.get();
         if (spellRegistry == null) return;
 
@@ -56,8 +55,8 @@ public class SpellListScreen extends Screen {
                 .sorted(Comparator.comparing(AbstractSpell::getSpellName))
                 .filter(spell -> {
                     if (filter.isEmpty()) return true;
-                    String name = Component.translatable(spell.getComponentId()).getString().toLowerCase();
-                    return name.contains(lowerFilter) || spell.getSpellName().toLowerCase().contains(lowerFilter);
+                    String name = Component.translatable(spell.getComponentId()).getString();
+                    return SearchUtil.contains(name, filter) || SearchUtil.contains(spell.getSpellName(), filter);
                 })
                 .forEach(spell -> {
                     ResourceLocation id = spellRegistry.getKey(spell);
