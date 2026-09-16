@@ -193,7 +193,11 @@ public class SetEventHandler {
 
         // 清理内存
         SNAPSHOT_HASH_CACHE.remove(dead.getUUID());
-        ActiveSetTracker.removeEntity(dead);
+        // 玩家会以同一 UUID 重生，phases 必须留到重生时对账：装备还在（死亡不掉落）则佩戴计时续期，
+        // 装备掉了则走失效分支归零；怪物死亡后不回来，直接清
+        if (!(dead instanceof Player)) {
+            ActiveSetTracker.removeEntity(dead);
+        }
     }
 
     @SubscribeEvent
@@ -775,6 +779,9 @@ public class SetEventHandler {
             if (!stillActive) {
                 for (EffectEntry entry : old.phase().effects) {
                     entry.remove(entity);
+                    if (entry instanceof DynamicAttributeEffectEntry dyn) {
+                        dyn.clearWearTimer(entity);
+                    }
                 }
             }
         }

@@ -122,12 +122,18 @@ public class DynamicAttributeEffectEntry extends EffectEntry {
             UUID id = UUID.fromString(uniqueId);
             AttributeHelper.removeModifier(entity, attr, id);
         }
-        // 将当前起始游戏刻存入持久化，以便下次恢复（脱下、退出重进等）
+        // 写回起始刻，供重载/重建后继续计时；真正取下由 clearWearTimer 清除
         if (variableType == VariableType.EQUIPPED_DURATION && startTick != null) {
             entity.getPersistentData().putLong("vse_dyn_start_" + uniqueId, startTick);
         }
         startTick = null;
         // 击杀计数不删除，保持累积
+    }
+
+    // 清除佩戴计时起点，下次穿上从 0 重新计时
+    public void clearWearTimer(LivingEntity entity) {
+        entity.getPersistentData().remove("vse_dyn_start_" + uniqueId);
+        startTick = null;
     }
 
     public void updateModifier(LivingEntity entity) {
