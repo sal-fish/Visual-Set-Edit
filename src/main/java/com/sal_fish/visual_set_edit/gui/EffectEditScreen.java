@@ -104,6 +104,7 @@ public class EffectEditScreen extends Screen {
     private String dynamicClipMinExpr = "", dynamicClipMaxExpr = "";
     private Button selectDynamicAttributeButton;
     private final List<EditBox> coeffEdits = new ArrayList<>();
+    private final List<PlaceholderSuggestor> suggestors = new ArrayList<>();
     private String dynamicScoreboardObjective = "";
     private EditBox scoreboardObjectiveEdit;
 
@@ -206,6 +207,7 @@ public class EffectEditScreen extends Screen {
     @Override
     protected void init() {
         clearWidgets();
+        suggestors.clear();
         int centerX = width / 2, totalWidth = 160, rowHeight = 18, spacing = 3, y = 30;
         List<String> types = new ArrayList<>(List.of("potion", "attribute", "ability", "command", "dynamic_attribute", "tag"));
         if (IntegrationManager.isIronSpellsLoaded()) {
@@ -835,6 +837,7 @@ public class EffectEditScreen extends Screen {
 
         // 系数输入
         coeffEdits.clear();
+        suggestors.clear();
         switch (dynamicFormula) {
             case LINEAR -> {
                 addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "a", 0);
@@ -866,6 +869,7 @@ public class EffectEditScreen extends Screen {
                     try { dynamicBase = Double.parseDouble(trimmed); } catch (Exception ignored) {}
                 });
                 addRenderableWidget(baseEdit);
+                suggestors.add(new PlaceholderSuggestor(baseEdit));
                 y += rowHeight + spacing;
                 addCoeffEdit(centerX, y, totalWidth, rowHeight, spacing, "c", 1);
                 y += rowHeight + spacing;
@@ -921,7 +925,9 @@ public class EffectEditScreen extends Screen {
             if (trimmed.isEmpty()) dynamicClipMinX = Double.NaN;
             else { try { dynamicClipMinX = Double.parseDouble(trimmed); } catch (Exception ignored) {} }
         });
-        addRenderableWidget(dynamicClipMinEdit); y += rowHeight + spacing;
+        addRenderableWidget(dynamicClipMinEdit);
+        suggestors.add(new PlaceholderSuggestor(dynamicClipMinEdit));
+        y += rowHeight + spacing;
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.dynamic_attribute.clip_max"), font)); y += rowHeight;
@@ -935,7 +941,9 @@ public class EffectEditScreen extends Screen {
             if (trimmed.isEmpty()) dynamicClipMaxX = Double.NaN;
             else { try { dynamicClipMaxX = Double.parseDouble(trimmed); } catch (Exception ignored) {} }
         });
-        addRenderableWidget(dynamicClipMaxEdit); y += rowHeight + spacing;
+        addRenderableWidget(dynamicClipMaxEdit);
+        suggestors.add(new PlaceholderSuggestor(dynamicClipMaxEdit));
+        y += rowHeight + spacing;
 
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -997,6 +1005,7 @@ public class EffectEditScreen extends Screen {
         });
         addRenderableWidget(edit);
         coeffEdits.add(edit);
+        suggestors.add(new PlaceholderSuggestor(edit));
     }
 
     private Component getDynamicAttributeButtonText() {
@@ -1217,6 +1226,10 @@ public class EffectEditScreen extends Screen {
 
         super.render(graphics, mouseX, mouseY, partial);
 
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            suggestor.render(graphics, mouseX, mouseY);
+        }
+
         for (var child : children()) {
             if (child instanceof AbstractWidget widget) {
                 widget.setY(widget.getY() + offset);
@@ -1238,11 +1251,25 @@ public class EffectEditScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.mouseClicked(mouseX, mouseY)) return true;
+        }
         return super.mouseClicked(mouseX, mouseY + scrollOffset, button);
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.keyPressed(keyCode)) return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.mouseScrolled(mouseX, mouseY, scrollDelta)) return true;
+        }
         int maxScroll = Math.max(0, contentHeight - this.height);
         scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - scrollDelta * 20));
         return true;

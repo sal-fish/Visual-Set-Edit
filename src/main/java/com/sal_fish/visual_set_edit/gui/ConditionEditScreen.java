@@ -70,6 +70,7 @@ public class ConditionEditScreen extends Screen {
     private EditBox effectLevelEdit;
 
     private final List<Condition> tempChildren = new ArrayList<>();
+    private final List<PlaceholderSuggestor> suggestors = new ArrayList<>();
 
     public ConditionEditScreen(Consumer<Condition> onSave, Screen returnTo) {
         this(onSave, returnTo, null);
@@ -166,6 +167,16 @@ public class ConditionEditScreen extends Screen {
             case "attribute" -> buildAttributeConditionFields(centerX, y, totalWidth, rowHeight, spacing);
             case "scoreboard" -> buildScoreboardConditionFields(centerX, y, totalWidth, rowHeight, spacing);
         }
+
+        suggestors.clear();
+        addSuggestor(valueEdit);
+        addSuggestor(isValueEdit);
+        addSuggestor(attrValueEdit);
+        addSuggestor(sbValueEdit);
+    }
+
+    private void addSuggestor(EditBox box) {
+        if (box != null && children().contains(box)) suggestors.add(new PlaceholderSuggestor(box));
     }
 
     private void buildCommonFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
@@ -820,8 +831,35 @@ public class ConditionEditScreen extends Screen {
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partial) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partial);
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            suggestor.render(graphics, mouseX, mouseY);
+        }
         graphics.drawCenteredString(font, Component.translatable("visual_set_edit.gui.edit_condition"),
                 width / 2, 10, 0xFFFFFF);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.keyPressed(keyCode)) return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.mouseClicked(mouseX, mouseY)) return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollDelta) {
+        for (PlaceholderSuggestor suggestor : suggestors) {
+            if (suggestor.mouseScrolled(mouseX, mouseY, scrollDelta)) return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollDelta);
     }
 
     @Override
