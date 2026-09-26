@@ -19,6 +19,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -36,8 +37,11 @@ public class SpellWheelCompatHandler {
     public void onSpellSelection(SpellSelectionManager.SpellSelectionEvent event) {
         Player player = event.getEntity();
         if (player == null) return;
+        List<Preset> source = player.level().isClientSide
+                ? PresetManager.clientPresets
+                : PresetManager.getPresets();
         int index = 0;
-        for (Preset preset : PresetManager.clientPresets) {
+        for (Preset preset : source) {
             for (SetPhase phase : preset.phases) {
                 if (!TooltipRenderer.isPhaseActiveClient(player, phase)) continue;
                 for (EffectEntry entry : phase.effects) {
