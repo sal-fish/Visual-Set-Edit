@@ -1,14 +1,15 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.api.AbilitySpec;
 import com.sal_fish.visual_set_edit.data.TargetFilter;
 import com.sal_fish.visual_set_edit.data.effect.*;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -16,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -25,8 +27,7 @@ public class EffectEditScreen extends Screen {
 
     private final Consumer<EffectEntry> onSave;
     private final Screen returnTo;
-    private final EffectEntry existingEffect;
-    private String effectType = "potion";
+    private String effectType = EffectTypeRegistry.defaultId();
 
     // Potion
     private String potionTarget = "SELF";
@@ -53,6 +54,8 @@ public class EffectEditScreen extends Screen {
 
     // Ability
     private String abilityId = "FLIGHT";
+    private final FieldSpecPanel abilityPanel = new FieldSpecPanel();
+    private String panelAbilityId;
 
     // Command
     private String commands = "";
@@ -134,7 +137,6 @@ public class EffectEditScreen extends Screen {
         super(Component.translatable("visual_set_edit.gui.effect_edit.title"));
         this.onSave = onSave;
         this.returnTo = returnTo;
-        this.existingEffect = existing;
         if (existing != null) loadFromExisting(existing);
     }
 
@@ -142,66 +144,9 @@ public class EffectEditScreen extends Screen {
         customDisplayText = existing.customDisplayText != null ? existing.customDisplayText : "";
         customColor = existing.customColor != null ? existing.customColor : "white";
         this.showPointer = existing.showPointer;
-        if (existing instanceof PotionEffectEntry pot) {
-            effectType = "potion"; potionTarget = pot.target != null ? pot.target : "SELF";
-            selectedMobEffect = ResourceLocation.tryParse(pot.mobEffectId); amplifier = pot.amplifier;
-            durationSeconds = pot.durationSeconds; cooldownSeconds = pot.cooldownSeconds;
-            showParticles = pot.showParticles;
-        } else if (existing instanceof AttributeEffectEntry attr) {
-            effectType = "attribute"; selectedAttribute = ResourceLocation.tryParse(attr.attributeId);
-            amount = attr.amount; attrOperation = attr.operation;
-            attrDurationSeconds = attr.durationSeconds; attrCooldownSeconds = attr.cooldownSeconds;
-        } else if (existing instanceof AbilityEffectEntry ab) {
-            effectType = "ability"; abilityId = ab.abilityId;
-        } else if (existing instanceof CommandEffectEntry cmd) {
-            effectType = "command";
-            commandTrigger = cmd.trigger != null ? cmd.trigger : CommandEffectEntry.Trigger.ACTIVATE;
-            commands = cmd.commands != null && !cmd.commands.isEmpty()
-                    ? String.join(";", cmd.commands)
-                    : (cmd.activateCommands != null && !cmd.activateCommands.isEmpty()
-                    ? String.join(";", cmd.activateCommands) : "");
-            commandMode = cmd.mode != null ? cmd.mode : CommandEffectEntry.Mode.IMPULSE;
-            commandRepeatInterval = cmd.repeatIntervalSeconds > 0 ? cmd.repeatIntervalSeconds : 1;
-            commandProbability = cmd.probability;
-            this.commandTargetFilter = Objects.requireNonNullElseGet(cmd.targetFilter, TargetFilter::new);
-            this.commandCooldownSeconds = cmd.cooldownSeconds;
-        } else if (existing instanceof IronSpellEffectEntry iron) {
-            effectType = "iron_spell"; spellId = iron.spellId != null ? iron.spellId : "";
-            spellLevel = iron.spellLevel > 0 ? iron.spellLevel : 1;
-        } else if (existing instanceof SlotCountEffectEntry slot) {
-            effectType = "slot_count"; slotCountSlotId = slot.slotId != null ? slot.slotId : "";
-            slotCountAmount = slot.amount;
-        } else if (existing instanceof SpellLevelBoostEffectEntry boost) {
-            effectType = "spell_level_boost"; boostSpellId = boost.spellId != null ? boost.spellId : "";
-            boostAmount = boost.boostAmount > 0 ? boost.boostAmount : 1;
-        } else if (existing instanceof L2HostilityTraitEffectEntry traitEff) {
-            effectType = "l2hostility_trait";
-            l2traitId = traitEff.traitId != null ? traitEff.traitId : "";
-            l2traitLevel = traitEff.level;
-        } else if (existing instanceof DynamicAttributeEffectEntry dynAttr) {
-            effectType = "dynamic_attribute";
-            dynamicAttributeId = dynAttr.attributeId != null ? dynAttr.attributeId : "";
-            dynamicOperation = dynAttr.operation;
-            dynamicVariable = dynAttr.variableType;
-            dynamicFormula = dynAttr.formulaType;
-            dynamicCoeffs = dynAttr.coefficients != null ? dynAttr.coefficients.clone() : new double[]{0, 0};
-            dynamicCoeffExprs = dynAttr.coeffExpressions != null ? dynAttr.coeffExpressions.clone() : new String[0];
-            dynamicBase = dynAttr.base;
-            dynamicBaseExpr = dynAttr.baseExpression != null ? dynAttr.baseExpression : "";
-            dynamicClipMinX = dynAttr.clipMinX;
-            dynamicClipMaxX = dynAttr.clipMaxX;
-            dynamicClipMinExpr = dynAttr.clipMinExpression != null ? dynAttr.clipMinExpression : "";
-            dynamicClipMaxExpr = dynAttr.clipMaxExpression != null ? dynAttr.clipMaxExpression : "";
-            dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
-            dynamicScoreboardObjective = dynAttr.scoreboardObjective != null ? dynAttr.scoreboardObjective : "";
-            dynamicSourcePotionId = dynAttr.sourcePotionId != null ? dynAttr.sourcePotionId : "";
-        } else if (existing instanceof L2DifficultyModEffectEntry mod) {
-            effectType = "l2_difficulty_mod";
-            l2DifficultyAmount = mod.amount;
-        } else if (existing instanceof TagEffectEntry tagEffect) {
-            effectType = "tag";
-            tagName = tagEffect.tagName != null ? tagEffect.tagName : "";
-        }
+        effectType = EffectTypeRegistry.contains(existing.type) ? existing.type : EffectTypeRegistry.defaultId();
+        EffectEditorRegistry.Editor editor = EffectEditorRegistry.get(effectType);
+        if (editor != null) editor.loadFrom(this, existing);
     }
 
     @Override
@@ -209,17 +154,8 @@ public class EffectEditScreen extends Screen {
         clearWidgets();
         suggestors.clear();
         int centerX = width / 2, totalWidth = 160, rowHeight = 18, spacing = 3, y = 30;
-        List<String> types = new ArrayList<>(List.of("potion", "attribute", "ability", "command", "dynamic_attribute", "tag"));
-        if (IntegrationManager.isIronSpellsLoaded()) {
-            types.add("iron_spell");
-            types.add("spell_level_boost");
-        }
-        if (IntegrationManager.isCuriosLoaded()) types.add("slot_count");
-        if (IntegrationManager.isL2HostilityLoaded()) {
-            types.add("l2hostility_trait");
-            types.add("l2_difficulty_mod");
-        }
-        if (!types.contains(effectType)) effectType = "potion";
+        List<String> types = EffectTypeRegistry.availableIds();
+        if (!types.contains(effectType)) effectType = EffectTypeRegistry.defaultId();
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.type"), font));
@@ -231,18 +167,9 @@ public class EffectEditScreen extends Screen {
         addRenderableWidget(typeButton);
         y += rowHeight + spacing;
 
-        switch (effectType) {
-            case "potion" -> y = buildPotionFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "attribute" -> y = buildAttributeFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "ability" -> y = buildAbilityFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "command" -> y = buildCommandFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "iron_spell" -> y = buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "slot_count" -> y = buildSlotCountFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "spell_level_boost" -> y = buildSpellLevelBoostFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "l2hostility_trait" -> y = buildL2HostilityTraitFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "dynamic_attribute" -> y = buildDynamicAttributeFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "l2_difficulty_mod" -> y = buildL2DifficultyModFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "tag" -> y = buildTagFields(centerX, y, totalWidth, rowHeight, spacing);
+        EffectEditorRegistry.Editor editor = EffectEditorRegistry.get(effectType);
+        if (editor != null) {
+            y = editor.buildFields(this, centerX, y, totalWidth, rowHeight, spacing);
         }
 
         this.contentHeight = y + 30;
@@ -251,7 +178,8 @@ public class EffectEditScreen extends Screen {
         }
     }
 
-    private int buildCustomDisplayFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    // 通用显示字段：自定义文本、颜色、指针开关；由各类型编辑界面调用
+    int buildCustomDisplayFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.custom_display_text"), font)); y += rowHeight;
         customDisplayTextEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -454,17 +382,59 @@ public class EffectEditScreen extends Screen {
                     return switch (s) {
                         case "FLIGHT" -> Component.translatable("visual_set_edit.gui.effect.ability.flight");
                         case "FALL_IMMUNITY" -> Component.translatable("visual_set_edit.gui.effect.ability.fall_immunity");
-                        default -> Component.literal(s);
+                        default -> {
+                            AbilitySpec ext = AbilityTypeRegistry.get(s);
+                            yield ext != null ? ext.displayName() : Component.literal(s);
+                        }
                     };
                 })
-                .withValues("FLIGHT", "FALL_IMMUNITY").displayOnlyValue().withInitialValue(abilityId)
+                .withValues(abilityValues()).displayOnlyValue().withInitialValue(abilityId)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                        Component.translatable("visual_set_edit.gui.effect.ability.id"), (btn, val) -> abilityId = val);
+                        Component.translatable("visual_set_edit.gui.effect.ability.id"), (btn, val) -> {
+                            boolean hadExt = AbilityTypeRegistry.get(abilityId) != null;
+                            boolean hasExt = AbilityTypeRegistry.get(val) != null;
+                            abilityId = val;
+                            // 只在内置两项之间切换时不需要重建，保持原有行为
+                            if (hadExt || hasExt) init();
+                        });
         addRenderableWidget(abButton); y += rowHeight + spacing;
+
+        // 外部注册的能力：字段由 AbilitySpec 描述
+        AbilitySpec ext = AbilityTypeRegistry.get(abilityId);
+        if (ext == null) {
+            if (panelAbilityId != null) {
+                abilityPanel.clear();
+                panelAbilityId = null;
+            }
+        } else {
+            if (!ext.id().equals(panelAbilityId)) {
+                abilityPanel.clear();
+                panelAbilityId = ext.id();
+            }
+            y = abilityPanel.render(FieldSpecPanel.hostOf(this), ext.fields(), centerX, y, totalWidth, rowHeight, spacing);
+        }
+
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
         y += rowHeight + spacing;
         return y;
+    }
+
+    // 内置两项加外部注册的能力
+    private static List<String> abilityValues() {
+        List<String> ids = new ArrayList<>(List.of("FLIGHT", "FALL_IMMUNITY"));
+        ids.addAll(AbilityTypeRegistry.ids());
+        return ids;
+    }
+
+    void loadAbilityParams(AbilityEffectEntry entry) {
+        abilityPanel.loadFrom(entry.params);
+        panelAbilityId = entry.abilityId;
+    }
+
+    Map<String, Object> saveAbilityParams() {
+        AbilitySpec ext = AbilityTypeRegistry.get(abilityId);
+        return ext == null ? Map.of() : abilityPanel.collect(ext.fields());
     }
 
     private int buildCommandFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
@@ -1039,20 +1009,12 @@ public class EffectEditScreen extends Screen {
         return name != null ? Component.literal(name) : Component.literal(spellId);
     }
 
-    private void saveButton(int centerX, int y, int totalWidth, int rowHeight) {
+    // 保存按钮；由各类型编辑界面在字段渲染完后调用
+    void saveButton(int centerX, int y, int totalWidth, int rowHeight) {
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.save"), b -> {
             EffectEntry effect = createEffect();
             if (effect != null) { onSave.accept(effect); assert minecraft != null; minecraft.setScreen(returnTo); }
         }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build());
-    }
-
-    private Component getPotionButtonText() {
-        if (selectedMobEffect != null) {
-            MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(selectedMobEffect);
-            if (effect != null) return Component.translatable(effect.getDescriptionId());
-            return Component.literal(selectedMobEffect.toString());
-        }
-        return Component.translatable("visual_set_edit.gui.click_select_item");
     }
 
     private Component getAttributeButtonText() {
@@ -1096,102 +1058,8 @@ public class EffectEditScreen extends Screen {
     }
 
     private EffectEntry createEffect() {
-        EffectEntry e = null;
-        switch (effectType) {
-            case "potion" -> {
-                PotionEffectEntry pot = new PotionEffectEntry(); pot.target = potionTarget;
-                if (potionIdEdit != null && !potionIdEdit.getValue().trim().isEmpty())
-                    pot.mobEffectId = potionIdEdit.getValue().trim();
-                else if (selectedMobEffect != null) pot.mobEffectId = selectedMobEffect.toString();
-                else pot.mobEffectId = "";
-                if (!"IMMUNE".equals(potionTarget)) {
-                    try { pot.amplifier = Integer.parseInt(amplifierEdit.getValue()); } catch (Exception ignored) {}
-                    try { pot.durationSeconds = Integer.parseInt(durationEdit.getValue()); } catch (Exception ignored) {}
-                    if (durationSeconds != -1 && cooldownEdit != null)
-                        try { pot.cooldownSeconds = Integer.parseInt(cooldownEdit.getValue()); } catch (Exception ignored) {}
-                    else pot.cooldownSeconds = 0;
-                } else { pot.amplifier = 0; pot.durationSeconds = -1; pot.cooldownSeconds = 0; }
-                pot.showParticles = showParticles;
-                e = pot;
-            }
-            case "attribute" -> {
-                AttributeEffectEntry attr = new AttributeEffectEntry();
-                attr.attributeId = selectedAttribute != null ? selectedAttribute.toString() : "";
-                try { attr.amount = Double.parseDouble(amountEdit.getValue()); } catch (Exception ignored) {}
-                attr.operation = attrOperation;
-                attr.durationSeconds = attrDurationEdit != null ? attrDurationSeconds : -1;
-                attr.cooldownSeconds = attrCooldownEdit != null ? Math.max(0, attrCooldownSeconds) : 0;
-                e = attr;
-            }
-            case "ability" -> { AbilityEffectEntry ab = new AbilityEffectEntry(); ab.abilityId = abilityId; e = ab; }
-            case "command" -> {
-                CommandEffectEntry cmd = new CommandEffectEntry();
-                cmd.trigger = commandTrigger;
-                if (commandsEdit != null && !commandsEdit.getValue().trim().isEmpty()) {
-                    cmd.commands = List.of(commandsEdit.getValue().split(";"));
-                }
-                if (commandTrigger == CommandEffectEntry.Trigger.REPEAT && commandIntervalEdit != null) {
-                    try { cmd.repeatIntervalSeconds = Integer.parseInt(commandIntervalEdit.getValue()); } catch (Exception ex) { cmd.repeatIntervalSeconds = 1; }
-                } else {
-                    cmd.repeatIntervalSeconds = 0;
-                }
-                cmd.activateCommands = cmd.commands;
-                cmd.probability = commandProbability;
-                cmd.targetFilter = this.commandTargetFilter;
-                cmd.cooldownSeconds = this.commandCooldownSeconds;
-                e = cmd;
-            }
-            case "iron_spell" -> {
-                IronSpellEffectEntry iron = new IronSpellEffectEntry(); iron.spellId = spellId;
-                try { iron.spellLevel = Integer.parseInt(spellLevelEdit.getValue()); } catch (Exception ignored) {} e = iron;
-            }
-            case "slot_count" -> {
-                SlotCountEffectEntry slot = new SlotCountEffectEntry(); slot.slotId = slotCountSlotId;
-                try { slot.amount = Integer.parseInt(slotCountAmountEdit.getValue()); } catch (Exception ignored) {} e = slot;
-            }
-            case "spell_level_boost" -> {
-                SpellLevelBoostEffectEntry boost = new SpellLevelBoostEffectEntry();
-                boost.spellId = boostSpellId.isEmpty() ? null : boostSpellId;
-                try { boost.boostAmount = Integer.parseInt(boostAmountEdit.getValue()); } catch (Exception ex) { boost.boostAmount = 1; }
-                e = boost;
-            }
-            case "l2hostility_trait" -> {
-                L2HostilityTraitEffectEntry trait = new L2HostilityTraitEffectEntry();
-                trait.target = "ATTACK_TARGET";
-                trait.traitId = l2traitId.isEmpty() ? null : l2traitId;
-                try { trait.level = Integer.parseInt(l2traitLevelEdit.getValue()); } catch (Exception ex) { trait.level = 1; }
-                e = trait;
-            }
-            case "l2_difficulty_mod" -> {
-                L2DifficultyModEffectEntry mod = new L2DifficultyModEffectEntry();
-                mod.amount = l2DifficultyAmount;
-                e = mod;
-            }
-            case "dynamic_attribute" -> {
-                DynamicAttributeEffectEntry dyn = new DynamicAttributeEffectEntry();
-                dyn.attributeId = dynamicAttributeId;
-                dyn.operation = dynamicOperation;
-                dyn.variableType = dynamicVariable;
-                dyn.formulaType = dynamicFormula;
-                dyn.coefficients = dynamicCoeffs.clone();
-                dyn.coeffExpressions = buildCoeffExpressions();
-                dyn.base = dynamicBase;
-                dyn.baseExpression = dynamicBaseExpr.isEmpty() ? null : dynamicBaseExpr;
-                dyn.clipMinX = dynamicClipMinX;
-                dyn.clipMaxX = dynamicClipMaxX;
-                dyn.clipMinExpression = dynamicClipMinExpr.isEmpty() ? null : dynamicClipMinExpr;
-                dyn.clipMaxExpression = dynamicClipMaxExpr.isEmpty() ? null : dynamicClipMaxExpr;
-                dyn.sourceAttributeId = dynamicSourceAttributeId;
-                dyn.scoreboardObjective = dynamicScoreboardObjective;
-                dyn.sourcePotionId = dynamicSourcePotionId;
-                e = dyn;
-            }
-            case "tag" -> {
-                TagEffectEntry tag = new TagEffectEntry();
-                tag.tagName = this.tagName;
-                e = tag;
-            }
-        }
+        EffectEditorRegistry.Editor editor = EffectEditorRegistry.get(effectType);
+        EffectEntry e = editor != null ? editor.create(this) : null;
         if (e != null) {
             e.customDisplayText = customDisplayTextEdit != null ? customDisplayTextEdit.getValue() : customDisplayText;
             e.customColor = customColor;
@@ -1278,11 +1146,324 @@ public class EffectEditScreen extends Screen {
     @Override
     public void onClose() { if (minecraft != null) minecraft.setScreen(returnTo); }
 
-    public EffectEntry getExistingEffect() {
-        return existingEffect;
-    }
-
     public CommandEffectEntry.Mode getCommandMode() {
         return commandMode;
+    }
+
+    // 供通用字段编辑器使用
+    Font fieldFont() {
+        return font;
+    }
+
+    void attachField(AbstractWidget widget) {
+        addRenderableWidget(widget);
+    }
+
+    // 效果编辑界面注册
+    static void registerEditors() {
+        EffectEditorRegistry.register("potion", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildPotionFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof PotionEffectEntry pot)) return;
+                screen.potionTarget = pot.target != null ? pot.target : "SELF";
+                screen.selectedMobEffect = ResourceLocation.tryParse(pot.mobEffectId);
+                screen.amplifier = pot.amplifier;
+                screen.durationSeconds = pot.durationSeconds;
+                screen.cooldownSeconds = pot.cooldownSeconds;
+                screen.showParticles = pot.showParticles;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                PotionEffectEntry pot = new PotionEffectEntry();
+                pot.target = screen.potionTarget;
+                if (screen.potionIdEdit != null && !screen.potionIdEdit.getValue().trim().isEmpty())
+                    pot.mobEffectId = screen.potionIdEdit.getValue().trim();
+                else if (screen.selectedMobEffect != null) pot.mobEffectId = screen.selectedMobEffect.toString();
+                else pot.mobEffectId = "";
+                if (!"IMMUNE".equals(screen.potionTarget)) {
+                    try { pot.amplifier = Integer.parseInt(screen.amplifierEdit.getValue()); } catch (Exception ignored) {}
+                    try { pot.durationSeconds = Integer.parseInt(screen.durationEdit.getValue()); } catch (Exception ignored) {}
+                    if (screen.durationSeconds != -1 && screen.cooldownEdit != null)
+                        try { pot.cooldownSeconds = Integer.parseInt(screen.cooldownEdit.getValue()); } catch (Exception ignored) {}
+                    else pot.cooldownSeconds = 0;
+                } else { pot.amplifier = 0; pot.durationSeconds = -1; pot.cooldownSeconds = 0; }
+                pot.showParticles = screen.showParticles;
+                return pot;
+            }
+        });
+
+        EffectEditorRegistry.register("attribute", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildAttributeFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof AttributeEffectEntry attr)) return;
+                screen.selectedAttribute = ResourceLocation.tryParse(attr.attributeId);
+                screen.amount = attr.amount;
+                screen.attrOperation = attr.operation;
+                screen.attrDurationSeconds = attr.durationSeconds;
+                screen.attrCooldownSeconds = attr.cooldownSeconds;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                AttributeEffectEntry attr = new AttributeEffectEntry();
+                attr.attributeId = screen.selectedAttribute != null ? screen.selectedAttribute.toString() : "";
+                try { attr.amount = Double.parseDouble(screen.amountEdit.getValue()); } catch (Exception ignored) {}
+                attr.operation = screen.attrOperation;
+                attr.durationSeconds = screen.attrDurationEdit != null ? screen.attrDurationSeconds : -1;
+                attr.cooldownSeconds = screen.attrCooldownEdit != null ? Math.max(0, screen.attrCooldownSeconds) : 0;
+                return attr;
+            }
+        });
+
+        EffectEditorRegistry.register("ability", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildAbilityFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof AbilityEffectEntry ab)) return;
+                screen.abilityId = ab.abilityId;
+                screen.loadAbilityParams(ab);
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                AbilityEffectEntry ab = new AbilityEffectEntry();
+                ab.abilityId = screen.abilityId;
+                ab.params.putAll(screen.saveAbilityParams());
+                return ab;
+            }
+        });
+
+        EffectEditorRegistry.register("command", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildCommandFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof CommandEffectEntry cmd)) return;
+                screen.commandTrigger = cmd.trigger != null ? cmd.trigger : CommandEffectEntry.Trigger.ACTIVATE;
+                screen.commands = cmd.commands != null && !cmd.commands.isEmpty()
+                        ? String.join(";", cmd.commands)
+                        : (cmd.activateCommands != null && !cmd.activateCommands.isEmpty()
+                        ? String.join(";", cmd.activateCommands) : "");
+                screen.commandMode = cmd.mode != null ? cmd.mode : CommandEffectEntry.Mode.IMPULSE;
+                screen.commandRepeatInterval = cmd.repeatIntervalSeconds > 0 ? cmd.repeatIntervalSeconds : 1;
+                screen.commandProbability = cmd.probability;
+                screen.commandTargetFilter = Objects.requireNonNullElseGet(cmd.targetFilter, TargetFilter::new);
+                screen.commandCooldownSeconds = cmd.cooldownSeconds;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                CommandEffectEntry cmd = new CommandEffectEntry();
+                cmd.trigger = screen.commandTrigger;
+                if (screen.commandsEdit != null && !screen.commandsEdit.getValue().trim().isEmpty()) {
+                    cmd.commands = List.of(screen.commandsEdit.getValue().split(";"));
+                }
+                if (screen.commandTrigger == CommandEffectEntry.Trigger.REPEAT && screen.commandIntervalEdit != null) {
+                    try { cmd.repeatIntervalSeconds = Integer.parseInt(screen.commandIntervalEdit.getValue()); } catch (Exception ex) { cmd.repeatIntervalSeconds = 1; }
+                } else {
+                    cmd.repeatIntervalSeconds = 0;
+                }
+                cmd.activateCommands = cmd.commands;
+                cmd.probability = screen.commandProbability;
+                cmd.targetFilter = screen.commandTargetFilter;
+                cmd.cooldownSeconds = screen.commandCooldownSeconds;
+                return cmd;
+            }
+        });
+
+        EffectEditorRegistry.register("dynamic_attribute", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildDynamicAttributeFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof DynamicAttributeEffectEntry dynAttr)) return;
+                screen.dynamicAttributeId = dynAttr.attributeId != null ? dynAttr.attributeId : "";
+                screen.dynamicOperation = dynAttr.operation;
+                screen.dynamicVariable = dynAttr.variableType;
+                screen.dynamicFormula = dynAttr.formulaType;
+                screen.dynamicCoeffs = dynAttr.coefficients != null ? dynAttr.coefficients.clone() : new double[]{0, 0};
+                screen.dynamicCoeffExprs = dynAttr.coeffExpressions != null ? dynAttr.coeffExpressions.clone() : new String[0];
+                screen.dynamicBase = dynAttr.base;
+                screen.dynamicBaseExpr = dynAttr.baseExpression != null ? dynAttr.baseExpression : "";
+                screen.dynamicClipMinX = dynAttr.clipMinX;
+                screen.dynamicClipMaxX = dynAttr.clipMaxX;
+                screen.dynamicClipMinExpr = dynAttr.clipMinExpression != null ? dynAttr.clipMinExpression : "";
+                screen.dynamicClipMaxExpr = dynAttr.clipMaxExpression != null ? dynAttr.clipMaxExpression : "";
+                screen.dynamicSourceAttributeId = dynAttr.sourceAttributeId != null ? dynAttr.sourceAttributeId : "";
+                screen.dynamicScoreboardObjective = dynAttr.scoreboardObjective != null ? dynAttr.scoreboardObjective : "";
+                screen.dynamicSourcePotionId = dynAttr.sourcePotionId != null ? dynAttr.sourcePotionId : "";
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                DynamicAttributeEffectEntry dyn = new DynamicAttributeEffectEntry();
+                dyn.attributeId = screen.dynamicAttributeId;
+                dyn.operation = screen.dynamicOperation;
+                dyn.variableType = screen.dynamicVariable;
+                dyn.formulaType = screen.dynamicFormula;
+                dyn.coefficients = screen.dynamicCoeffs.clone();
+                dyn.coeffExpressions = screen.buildCoeffExpressions();
+                dyn.base = screen.dynamicBase;
+                dyn.baseExpression = screen.dynamicBaseExpr.isEmpty() ? null : screen.dynamicBaseExpr;
+                dyn.clipMinX = screen.dynamicClipMinX;
+                dyn.clipMaxX = screen.dynamicClipMaxX;
+                dyn.clipMinExpression = screen.dynamicClipMinExpr.isEmpty() ? null : screen.dynamicClipMinExpr;
+                dyn.clipMaxExpression = screen.dynamicClipMaxExpr.isEmpty() ? null : screen.dynamicClipMaxExpr;
+                dyn.sourceAttributeId = screen.dynamicSourceAttributeId;
+                dyn.scoreboardObjective = screen.dynamicScoreboardObjective;
+                dyn.sourcePotionId = screen.dynamicSourcePotionId;
+                return dyn;
+            }
+        });
+
+        EffectEditorRegistry.register("tag", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildTagFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof TagEffectEntry tagEffect)) return;
+                screen.tagName = tagEffect.tagName != null ? tagEffect.tagName : "";
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                TagEffectEntry tag = new TagEffectEntry();
+                tag.tagName = screen.tagName;
+                return tag;
+            }
+        });
+
+        EffectEditorRegistry.register("iron_spell", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof IronSpellEffectEntry iron)) return;
+                screen.spellId = iron.spellId != null ? iron.spellId : "";
+                screen.spellLevel = iron.spellLevel > 0 ? iron.spellLevel : 1;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                IronSpellEffectEntry iron = new IronSpellEffectEntry();
+                iron.spellId = screen.spellId;
+                try { iron.spellLevel = Integer.parseInt(screen.spellLevelEdit.getValue()); } catch (Exception ignored) {}
+                return iron;
+            }
+        });
+
+        EffectEditorRegistry.register("spell_level_boost", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildSpellLevelBoostFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof SpellLevelBoostEffectEntry boost)) return;
+                screen.boostSpellId = boost.spellId != null ? boost.spellId : "";
+                screen.boostAmount = boost.boostAmount > 0 ? boost.boostAmount : 1;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                SpellLevelBoostEffectEntry boost = new SpellLevelBoostEffectEntry();
+                boost.spellId = screen.boostSpellId.isEmpty() ? null : screen.boostSpellId;
+                try { boost.boostAmount = Integer.parseInt(screen.boostAmountEdit.getValue()); } catch (Exception ex) { boost.boostAmount = 1; }
+                return boost;
+            }
+        });
+
+        EffectEditorRegistry.register("slot_count", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildSlotCountFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof SlotCountEffectEntry slot)) return;
+                screen.slotCountSlotId = slot.slotId != null ? slot.slotId : "";
+                screen.slotCountAmount = slot.amount;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                SlotCountEffectEntry slot = new SlotCountEffectEntry();
+                slot.slotId = screen.slotCountSlotId;
+                try { slot.amount = Integer.parseInt(screen.slotCountAmountEdit.getValue()); } catch (Exception ignored) {}
+                return slot;
+            }
+        });
+
+        EffectEditorRegistry.register("l2hostility_trait", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildL2HostilityTraitFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof L2HostilityTraitEffectEntry traitEff)) return;
+                screen.l2traitId = traitEff.traitId != null ? traitEff.traitId : "";
+                screen.l2traitLevel = traitEff.level;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                L2HostilityTraitEffectEntry trait = new L2HostilityTraitEffectEntry();
+                trait.target = "ATTACK_TARGET";
+                trait.traitId = screen.l2traitId.isEmpty() ? null : screen.l2traitId;
+                try { trait.level = Integer.parseInt(screen.l2traitLevelEdit.getValue()); } catch (Exception ex) { trait.level = 1; }
+                return trait;
+            }
+        });
+
+        EffectEditorRegistry.register("l2_difficulty_mod", new EffectEditorRegistry.Editor() {
+            @Override
+            public int buildFields(EffectEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                return screen.buildL2DifficultyModFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
+                if (!(entry instanceof L2DifficultyModEffectEntry mod)) return;
+                screen.l2DifficultyAmount = mod.amount;
+            }
+
+            @Override
+            public EffectEntry create(EffectEditScreen screen) {
+                L2DifficultyModEffectEntry mod = new L2DifficultyModEffectEntry();
+                mod.amount = screen.l2DifficultyAmount;
+                return mod;
+            }
+        });
     }
 }

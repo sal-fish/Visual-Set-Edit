@@ -133,13 +133,6 @@ public class CuriosItemMappingManager {
     }
 
     /**
-     * 获取所有已注册的物品 ID（用于列表展示）
-     */
-    public static Set<String> getRegisteredItemIds() {
-        return Collections.unmodifiableSet(registry.keySet());
-    }
-
-    /**
      * 获取整个注册表（只读）
      */
     public static Map<String, List<RegisteredEntry>> getRegistry() {
@@ -167,26 +160,6 @@ public class CuriosItemMappingManager {
             }
             save();
         }
-    }
-
-    /**
-     * 删除某个物品的所有记录
-     */
-    public static void removeAllEntries(String itemId) {
-        registry.remove(itemId);
-        save();
-    }
-
-    /**
-     * 清空某个物品的旧记录并添加一条新记录（用于编辑界面直接覆盖）
-     */
-    public static void replaceEntries(String itemId, List<RegisteredEntry> newEntries) {
-        if (newEntries == null || newEntries.isEmpty()) {
-            registry.remove(itemId);
-        } else {
-            registry.put(itemId, new ArrayList<>(newEntries));
-        }
-        save();
     }
 
     // 持久化

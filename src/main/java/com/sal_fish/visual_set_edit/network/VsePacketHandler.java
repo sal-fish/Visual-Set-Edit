@@ -53,5 +53,12 @@ public class VsePacketHandler {
                 S2CResponseRegistryDataPacket::decode,
                 S2CResponseRegistryDataPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        // 服务端 → 客户端
+        INSTANCE.registerMessage(id++, S2CConditionStatePacket.class,
+                S2CConditionStatePacket::encode,
+                S2CConditionStatePacket::decode,
+                S2CConditionStatePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 }

@@ -1,7 +1,6 @@
 package com.sal_fish.visual_set_edit.network;
 
 import com.sal_fish.visual_set_edit.gui.RegistryDataCache;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkEvent;

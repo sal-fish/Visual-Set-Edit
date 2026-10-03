@@ -1,4 +1,6 @@
 {
+  "visual_set_edit.effect.missing": "未知效果：%s",
+  "visual_set_edit.condition.missing": "未知条件：%s",
   "visual_set_edit.color.black": "黑色",
   "visual_set_edit.color.blue": "蓝色",
   "visual_set_edit.color.dark_gray": "深灰色",
@@ -136,7 +138,7 @@
   "visual_set_edit.gui.effect.ability.display": "能力：%s",
   "visual_set_edit.gui.effect.ability.fall_immunity": "免疫摔伤",
   "visual_set_edit.gui.effect.ability.flight": "飞行",
-  "visual_set_edit.gui.effect.ability.id": "能力 ID (FLIGHT/WATER_WALK/FALL_IMMUNITY)",
+  "visual_set_edit.gui.effect.ability.id": "能力 ID",
   "visual_set_edit.gui.effect.attribute.amount": "数值",
   "visual_set_edit.gui.effect.attribute.cooldown": "冷却(秒)",
   "visual_set_edit.gui.effect.attribute.display": "%1$s %2$s",

@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import com.sal_fish.visual_set_edit.VisualSetEdit;
 import com.sal_fish.visual_set_edit.data.Preset;
 import com.sal_fish.visual_set_edit.data.SetPhase;
+import com.sal_fish.visual_set_edit.data.ConditionStateCache;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
 import com.sal_fish.visual_set_edit.data.condition.Condition;
 import com.sal_fish.visual_set_edit.data.condition.ConditionAdapter;
@@ -142,6 +143,8 @@ public class PresetManager {
         for (Preset p : clientPresets) p.initAfterLoad();
         SlotCondition.clearNbtCache();
         rebuildIndex();
+        // 预设结构变了，旧的条件状态位图作废
+        ConditionStateCache.clear();
     }
 
     //索引重建

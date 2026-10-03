@@ -1,16 +1,21 @@
 package com.sal_fish.visual_set_edit.event;
 
 import com.sal_fish.visual_set_edit.VisualSetEdit;
+import com.sal_fish.visual_set_edit.api.SlotProvider;
 import com.sal_fish.visual_set_edit.config.PresetManager;
 import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import com.sal_fish.visual_set_edit.data.Preset;
 import com.sal_fish.visual_set_edit.data.SetPhase;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
+import com.sal_fish.visual_set_edit.data.SlotProviderRegistry;
 import com.sal_fish.visual_set_edit.data.effect.*;
+import com.sal_fish.visual_set_edit.integration.CuriosSlotProvider;
 import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.network.ConditionStateSyncServer;
 import com.sal_fish.visual_set_edit.network.S2CSyncPresetsPacket;
 import com.sal_fish.visual_set_edit.network.VsePacketHandler;
+import com.sal_fish.visual_set_edit.util.VseLog;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -116,6 +121,8 @@ public class SetEventHandler {
             cleanupOrphanedModifiers(player);
             recreateEffects(player);
             SNAPSHOT_HASH_CACHE.remove(player.getUUID());
+            // 清掉缓存让下次 tick 立刻重发条件状态
+            ConditionStateSyncServer.invalidate(player.getUUID());
         }
     }
 
@@ -124,6 +131,7 @@ public class SetEventHandler {
         AbilityEffectEntry.clearFlightCounter(event.getEntity().getUUID());
         com.sal_fish.visual_set_edit.data.effect.AttributeEffectEntry.clearOrphans(event.getEntity().getUUID());
         clearSnapshotCache(event.getEntity().getUUID());
+        ConditionStateSyncServer.invalidate(event.getEntity().getUUID());
     }
 
     @SubscribeEvent
@@ -284,6 +292,10 @@ public class SetEventHandler {
             processDynamicAttributes(entity);
             processTimedAttributes(entity);
             IntegrationManager.tickL2Traits(entity);
+            // 玩家额外同步条件成立状态，供客户端 tooltip 使用
+            if (entity instanceof ServerPlayer serverPlayer) {
+                ConditionStateSyncServer.tick(serverPlayer);
+            }
         }
     }
 
@@ -690,13 +702,19 @@ public class SetEventHandler {
         addItemId(ids, entity.getItemBySlot(EquipmentSlot.LEGS));
         addItemId(ids, entity.getItemBySlot(EquipmentSlot.FEET));
 
-        if (IntegrationManager.isCuriosLoaded()) {
-            IModIntegration curios = IntegrationManager.getCurios();
-            for (String slotId : curios.getExtraSlots()) {
-                List<ItemStack> stacks = curios.getSlotStacks(entity, slotId);
-                for (ItemStack stack : stacks) {
-                    addItemId(ids, stack);
+        for (SlotProvider provider : SlotProviderRegistry.all()) {
+            try {
+                List<String> slotIds = provider.slotIds(entity);
+                if (slotIds == null) continue;
+                for (String slotId : slotIds) {
+                    List<ItemStack> stacks = provider.stacks(entity, slotId);
+                    if (stacks == null) continue;
+                    for (ItemStack stack : stacks) {
+                        addItemId(ids, stack);
+                    }
                 }
+            } catch (Exception e) {
+                VseLog.warnOnce("vse.slotProvider.collect." + provider.id(), "[VSE] 槽位来源读取失败: " + provider.id(), e);
             }
         }
         ids.remove("minecraft:air");
@@ -868,7 +886,10 @@ public class SetEventHandler {
         Map<String, Set<Integer>> usedIndices = new HashMap<>();
 
         for (SlotCondition cond : sortedConditions) {
-            if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
+            String thirdParty = thirdPartyProviderId(cond.slot);
+            if (thirdParty != null) {
+                if (matchProviderSlot(entity, thirdParty, cond, usedIndices)) matched++;
+            } else if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
                 String realSlotId = cond.slot.substring(7);
                 List<ItemStack> stacks;
 
@@ -921,6 +942,50 @@ public class SetEventHandler {
             if (!cond.test(entity)) return false;
         }
         return true;
+    }
+
+    // 非 curios 的注册来源；curios 走原有分支
+    private static String thirdPartyProviderId(String slotKey) {
+        String providerId = SlotProviderRegistry.providerIdOf(slotKey);
+        return providerId == null || CuriosSlotProvider.ID.equals(providerId) ? null : providerId;
+    }
+
+    // any 键遍历该来源全部槽位，普通键只查对应槽位
+    private boolean matchProviderSlot(LivingEntity entity, String providerId,
+                                      SlotCondition cond, Map<String, Set<Integer>> used) {
+        SlotProvider provider = SlotProviderRegistry.get(providerId);
+        if (provider == null) return false;
+        try {
+            if (SlotProviderRegistry.isAnyKey(cond.slot)) {
+                List<String> ids = provider.slotIds(entity);
+                if (ids != null) {
+                    for (String id : ids) {
+                        if (matchProviderStacks(provider, entity, providerId + ":" + id, cond, used)) return true;
+                    }
+                }
+                return false;
+            }
+            return matchProviderStacks(provider, entity, cond.slot, cond, used);
+        } catch (Exception e) {
+            VseLog.warnOnce("vse.slotProvider.match." + providerId, "[VSE] 槽位来源判定失败: " + providerId, e);
+            return false;
+        }
+    }
+
+    // 命中则占用该索引，避免同一物品被多个条件重复计数
+    private boolean matchProviderStacks(SlotProvider provider, LivingEntity entity, String key,
+                                        SlotCondition cond, Map<String, Set<Integer>> used) {
+        List<ItemStack> stacks = provider.stacks(entity, SlotProviderRegistry.slotIdOf(key));
+        if (stacks == null) return false;
+        Set<Integer> taken = used.get(key);
+        for (int i = 0; i < stacks.size(); i++) {
+            if (taken != null && taken.contains(i)) continue;
+            if (cond.matches(stacks.get(i))) {
+                used.computeIfAbsent(key, k -> new HashSet<>()).add(i);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void handleInstantTrigger(LivingEntity entity, CommandEffectEntry.Trigger trigger,

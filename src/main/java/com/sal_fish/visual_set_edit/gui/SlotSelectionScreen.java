@@ -1,7 +1,7 @@
 package com.sal_fish.visual_set_edit.gui;
 
-import com.sal_fish.visual_set_edit.integration.IModIntegration;
-import com.sal_fish.visual_set_edit.integration.IntegrationManager;
+import com.sal_fish.visual_set_edit.api.SlotProvider;
+import com.sal_fish.visual_set_edit.data.SlotProviderRegistry;
 import com.sal_fish.visual_set_edit.util.SearchUtil;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -67,37 +67,42 @@ public class SlotSelectionScreen extends Screen {
 
         List<String> allSlots = new ArrayList<>();
 
-        // 根据 onlyCurios 决定是否加入原版槽位
         if (!onlyCurios) {
             allSlots.addAll(Arrays.asList(VANILLA_SLOTS));
         }
-        try {
-            if (IntegrationManager.isCuriosLoaded()) {
-                var curios = IntegrationManager.getCurios();
-                if (curios != null) {
-                    for (String slotId : curios.getExtraSlots()) {
-                        allSlots.add("curios:" + slotId);
-                    }
-                    allSlots.add(IModIntegration.ANY_CURIOS_SLOT);
-                }
-            }
-        } catch (Exception e) {
-            com.sal_fish.visual_set_edit.VisualSetEdit.LOGGER.warn("[VSE] Failed to load curios slots", e);
-        }
+        allSlots.addAll(SlotProviderRegistry.allSlotKeys(minecraft != null ? minecraft.player : null));
 
         allSlots.sort(Comparator.naturalOrder());
 
         for (String slot : allSlots) {
-            if (!filter.isEmpty() && !SearchUtil.contains(slot, filter)) continue;
             Component slotName;
-            if (slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
+            if (SlotProviderRegistry.isAnyKey(slot)) {
                 slotName = Component.translatable("visual_set_edit.slot.any");
-            } else if (slot.startsWith("curios:")) {
-                slotName = Component.translatable("curios.identifier." + slot.substring(7));
+            } else if (SlotProviderRegistry.isProviderKey(slot)) {
+                SlotProvider provider = SlotProviderRegistry.get(SlotProviderRegistry.providerIdOf(slot));
+                String displayKey = null;
+                if (provider != null) {
+                    displayKey = provider.slotDisplayName(SlotProviderRegistry.slotIdOf(slot));
+                }
+                if (displayKey != null) {
+                    slotName = Component.translatable(displayKey);
+                } else if ("curios".equals(provider.id())) {
+                    slotName = Component.translatable("curios.identifier." + SlotProviderRegistry.slotIdOf(slot));
+                } else {
+                    slotName = Component.literal(slot);
+                }
             } else {
                 slotName = Component.translatable("visual_set_edit.slot." + slot.toLowerCase());
             }
+            // 不同来源的槽位可能有相同翻译名，补上槽位键区分
             String slotStr = slotName.getString();
+            if (!slotStr.equals(slot) && SlotProviderRegistry.isProviderKey(slot)
+                    && !SlotProviderRegistry.isAnyKey(slot)) {
+                slotStr = slotStr + " (" + slot + ")";
+            }
+            // 槽位键与显示名任一命中即可
+            if (!filter.isEmpty() && !SearchUtil.contains(slot, filter)
+                    && !SearchUtil.contains(slotStr, filter)) continue;
             String displayText = slot.equals(currentSlot) ? "> " + slotStr + " <" : slotStr;
             ResourceLocation entryId = ResourceLocation.tryParse("vse:" + slot.toLowerCase().replace(':', '_'));
             if (entryId == null) {

@@ -1,11 +1,16 @@
 package com.sal_fish.visual_set_edit.gui;
 
+import com.sal_fish.visual_set_edit.api.ConditionFieldSpec;
+import com.sal_fish.visual_set_edit.api.PickerScreenFactory;
 import com.sal_fish.visual_set_edit.data.condition.*;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
 import com.sal_fish.visual_set_edit.data.NbtMatchRule;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -20,13 +25,13 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class ConditionEditScreen extends Screen {
     private final Consumer<Condition> onSave;
     private final Screen returnTo;
-    private final Condition existingCondition;
 
-    private String condType = "environment";
+    private String condType = ConditionTypeRegistry.defaultId();
     private String field = "";
     private String comparator = "EQ";
     private String value = "";
@@ -39,7 +44,6 @@ public class ConditionEditScreen extends Screen {
     private int invDurMax = 100;
 
     private String compOp = "AND";
-    private final List<Condition> children = new ArrayList<>();
 
     private String isField = "MANA";
     private String isComparator = "EQ";
@@ -80,53 +84,15 @@ public class ConditionEditScreen extends Screen {
         super(Component.translatable("visual_set_edit.gui.edit_condition"));
         this.onSave = onSave;
         this.returnTo = returnTo;
-        this.existingCondition = existing;
         if (existing != null) {
             loadFromExisting(existing);
         }
     }
 
     private void loadFromExisting(Condition c) {
-        condType = c.type;
+        condType = c.type != null ? c.type : ConditionTypeRegistry.defaultId();
         conditionCustomDisplayText = c.customDisplayText != null ? c.customDisplayText : "";
-        if (c instanceof EnvironmentCondition env) {
-            field = env.field;
-            comparator = env.comparator;
-            value = env.value;
-        } else if (c instanceof PlayerStateCondition ps) {
-            field = ps.field;
-            comparator = ps.comparator;
-            value = ps.value;
-            playerStateEffectAmplifier = ps.effectAmplifier;
-        } else if (c instanceof InventoryCondition inv) {
-            invSlot = inv.slot != null ? inv.slot : "HEAD";
-            if (inv.itemCondition != null) {
-                invItemId = inv.itemCondition.itemId;
-                invTagId = inv.itemCondition.tagId;
-                invNbtRule = inv.itemCondition.nbtRule;
-                invDurMin = inv.itemCondition.durabilityMinPercent;
-                invDurMax = inv.itemCondition.durabilityMaxPercent;
-            }
-        } else if (c instanceof IronSpellCondition is) {
-            isField = is.field;
-            isComparator = is.comparator;
-            isValue = is.value;
-            isValueRaw = rawOf(is.valueExpression, is.value);
-        } else if (c instanceof AttributeCondition attrCond) {
-            attrId = attrCond.attributeId;
-            attrComparator = attrCond.comparator;
-            attrValue = attrCond.value;
-            attrValueRaw = rawOf(attrCond.valueExpression, attrCond.value);
-        } else if (c instanceof ScoreboardCondition sbCond) {
-            sbObjective = sbCond.objective != null ? sbCond.objective : "";
-            sbComparator = sbCond.comparator != null ? sbCond.comparator : "GTE";
-            sbValue = sbCond.value;
-            sbValueRaw = rawOf(sbCond.valueExpression, sbCond.value);
-        } else if (c instanceof CompositeCondition comp) {
-            compOp = comp.op;
-            children.clear();
-            if (comp.children != null) children.addAll(comp.children);
-        }
+        ConditionEditorRegistry.getOrDefault(condType).loadFrom(this, c);
     }
 
     // 优先表达式，其次固定值
@@ -146,9 +112,11 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.type"), font));
         y += rowHeight;
+        List<String> types = ConditionTypeRegistry.availableIds();
+        if (!types.contains(condType)) condType = ConditionTypeRegistry.defaultId();
         CycleButton<String> typeButton = CycleButton.<String>builder(s ->
                         Component.translatable("visual_set_edit.gui.condition.type." + s))
-                .withValues("environment", "player_state", "inventory", "iron_spell", "attribute", "scoreboard", "composite")
+                .withValues(types)
                 .displayOnlyValue()
                 .withInitialValue(condType)
                 .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -159,13 +127,9 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(typeButton);
         y += rowHeight + spacing;
 
-        switch (condType) {
-            case "environment", "player_state" -> buildCommonFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "inventory" -> buildInventoryFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "iron_spell" -> buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "composite" -> buildCompositeFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "attribute" -> buildAttributeConditionFields(centerX, y, totalWidth, rowHeight, spacing);
-            case "scoreboard" -> buildScoreboardConditionFields(centerX, y, totalWidth, rowHeight, spacing);
+        ConditionEditorRegistry.Editor editor = ConditionEditorRegistry.get(condType);
+        if (editor != null) {
+            editor.buildFields(this, centerX, y, totalWidth, rowHeight, spacing);
         }
 
         suggestors.clear();
@@ -179,7 +143,10 @@ public class ConditionEditScreen extends Screen {
         if (box != null && children().contains(box)) suggestors.add(new PlaceholderSuggestor(box));
     }
 
-    private void buildCommonFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildCommonFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        // 值输入区每次重建都会换控件，旧引用必须清掉
+        valueEdit = null;
+
         List<String> fieldOptions = getFieldOptions();
         if (!fieldOptions.isEmpty()) {
             if (field.isEmpty() || !fieldOptions.contains(field)) {
@@ -188,7 +155,11 @@ public class ConditionEditScreen extends Screen {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.field"), font));
             y += rowHeight;
-            CycleButton<String> fieldButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.condition.field." + condType + "." + s))
+            CycleButton<String> fieldButton = CycleButton.<String>builder(s -> {
+                        ConditionFieldSpec ext = ConditionFieldRegistry.get(condType, s);
+                        if (ext != null && ext.displayText() != null) return ext.displayText().get();
+                        return Component.translatable("visual_set_edit.gui.condition.field." + condType + "." + s);
+                    })
                     .withValues(fieldOptions)
                     .displayOnlyValue()
                     .withInitialValue(field)
@@ -201,8 +172,18 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight + spacing;
         }
 
-        // 比较符部分：IS_HURT 和 TAG 不需要通用比较符
-        if (!"IS_HURT".equals(field) && !"TAG".equals(field)) {
+        // 外部注册的字段走独立分支，内置字段逻辑不受影响
+        ConditionFieldSpec registeredField = ConditionFieldRegistry.get(condType, field);
+        if (registeredField != null) {
+            y = buildRegisteredFieldValue(registeredField, centerX, y, totalWidth, rowHeight, spacing);
+            y += 6;
+            y = buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
+            saveButton(centerX, y, totalWidth, rowHeight);
+            return;
+        }
+
+        // 比较符部分：IS_HURT 和 TAG 不需要通用比较符，HAS_EFFECT 用两项比较符
+        if (!"IS_HURT".equals(field) && !"TAG".equals(field) && !isHasEffect()) {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
             y += rowHeight;
@@ -293,7 +274,7 @@ public class ConditionEditScreen extends Screen {
             y += rowHeight + spacing;
         } else {
             boolean needListButton = "DIMENSION".equals(field) || "BIOME".equals(field) || "STRUCTURE".equals(field)
-                    || ("player_state".equals(condType) && "HAS_EFFECT".equals(field));
+                    || isHasEffect();
             int editWidth = needListButton ? totalWidth - 22 : totalWidth;
 
             valueEdit = new EditBox(font, centerX - totalWidth / 2, y, editWidth, rowHeight,
@@ -352,8 +333,24 @@ public class ConditionEditScreen extends Screen {
             }
             y += rowHeight + spacing;
 
-            // HAS_EFFECT：效果等级（-1 = 任意，0 = 1级，1 = 2级…）
-            if (condType.equals("player_state") && "HAS_EFFECT".equals(field)) {
+            // HAS_EFFECT：比较符（等于/不等于）+ 效果等级（-1 = 任意，0 = 1级，1 = 2级…）
+            if (isHasEffect()) {
+                addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.translatable("visual_set_edit.gui.condition.comparator"), font));
+                y += rowHeight;
+                // 该字段只有等于/不等于两种语义，其余取值一律归到等于
+                comparator = "NEQ".equals(comparator) ? "NEQ" : "EQ";
+                CycleButton<String> effectComparatorButton = CycleButton.<String>builder(s ->
+                                Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+                        .withValues("EQ", "NEQ")
+                        .displayOnlyValue()
+                        .withInitialValue(comparator)
+                        .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                                Component.translatable("visual_set_edit.gui.condition.comparator"),
+                                (btn, val) -> comparator = val);
+                addRenderableWidget(effectComparatorButton);
+                y += rowHeight + spacing;
+
                 addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                         Component.translatable("visual_set_edit.gui.condition.value.effect_level"), font));
                 y += rowHeight;
@@ -374,8 +371,80 @@ public class ConditionEditScreen extends Screen {
         saveButton(centerX, y, totalWidth, rowHeight);
     }
 
+    // 外部注册字段的取值控件
+    private int buildRegisteredFieldValue(ConditionFieldSpec spec, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+        int x = centerX - totalWidth / 2;
+        boolean optionsForm = spec.valueForm() == ConditionFieldSpec.ValueForm.OPTIONS;
+
+        if (optionsForm) {
+            comparator = "";
+        } else {
+            addRenderableWidget(new StringWidget(x, y, totalWidth, rowHeight,
+                    Component.translatable("visual_set_edit.gui.condition.comparator"), font));
+            y += rowHeight;
+            CycleButton<String> comparatorButton = CycleButton.<String>builder(s ->
+                            Component.translatable("visual_set_edit.gui.condition.comparator." + s))
+                    .withValues("EQ", "NEQ", "GT", "LT", "GTE", "LTE")
+                    .displayOnlyValue()
+                    .withInitialValue(comparator.isEmpty() ? "EQ" : comparator)
+                    .create(x, y, totalWidth, rowHeight,
+                            Component.translatable("visual_set_edit.gui.condition.comparator"),
+                            (btn, val) -> comparator = val);
+            addRenderableWidget(comparatorButton);
+            y += rowHeight + spacing;
+        }
+
+        addRenderableWidget(new StringWidget(x, y, totalWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"), font));
+        y += rowHeight;
+
+        if (optionsForm) {
+            List<String> options = spec.options();
+            // 空选项会让 CycleButton 抛 IllegalStateException，这里只画标签
+            if (!options.isEmpty()) {
+                String init = options.contains(value) ? value : options.get(0);
+                value = init;
+                CycleButton<String> optionButton = CycleButton.<String>builder(s -> {
+                            Function<String, Component> renderer = spec.optionRenderer();
+                            return renderer != null ? renderer.apply(s) : Component.literal(s);
+                        })
+                        .withValues(options)
+                        .displayOnlyValue()
+                        .withInitialValue(init)
+                        .create(x, y, totalWidth, rowHeight,
+                                Component.translatable("visual_set_edit.gui.condition.value"),
+                                (btn, val) -> value = val);
+                addRenderableWidget(optionButton);
+            }
+            return y + rowHeight + spacing;
+        }
+
+        boolean withPicker = spec.valueForm() == ConditionFieldSpec.ValueForm.PICKER;
+        int editWidth = withPicker ? totalWidth - 22 : totalWidth;
+        valueEdit = new EditBox(font, x, y, editWidth, rowHeight,
+                Component.translatable("visual_set_edit.gui.condition.value"));
+        valueEdit.setMaxLength(5201314);
+        valueEdit.setValue(value);
+        valueEdit.setResponder(s -> value = s);
+        addRenderableWidget(valueEdit);
+
+        if (withPicker) {
+            PickerScreenFactory factory = PickerScreenRegistry.get(spec.pickerId());
+            if (factory != null) {
+                Button listButton = Button.builder(Component.literal("📦"), btn ->
+                        Minecraft.getInstance().setScreen(factory.create(this, picked -> {
+                            value = picked;
+                            if (valueEdit != null) valueEdit.setValue(picked);
+                        }))
+                ).pos(x + editWidth + 2, y).size(20, rowHeight).build();
+                addRenderableWidget(listButton);
+            }
+        }
+        return y + rowHeight + spacing;
+    }
+
     //库存条件
-    private void buildInventoryFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildInventoryFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         // 槽位选择
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.inventory.slot"), font));
@@ -465,7 +534,7 @@ public class ConditionEditScreen extends Screen {
     }
 
     //铁魔法条件
-    private void buildIronSpellFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildIronSpellFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         List<String> isFieldOpts = List.of("MANA", "MANA_PERCENT", "CASTING");
         if (isField == null || isField.isEmpty() || !isFieldOpts.contains(isField)) {
             isField = isFieldOpts.get(0);
@@ -514,7 +583,7 @@ public class ConditionEditScreen extends Screen {
         saveButton(centerX, y, totalWidth, rowHeight);
     }
     //属性条件
-    private void buildAttributeConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildAttributeConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         // 属性选择按钮
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.attribute"), font));
@@ -559,7 +628,7 @@ public class ConditionEditScreen extends Screen {
     }
 
     //计分板条件
-    private void buildScoreboardConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildScoreboardConditionFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         // 计分板选择按钮
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.scoreboard.objective"), font));
@@ -604,7 +673,7 @@ public class ConditionEditScreen extends Screen {
     }
 
     //复合条件
-    private void buildCompositeFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    void buildCompositeFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.composite.op"), font));
         y += rowHeight;
@@ -621,10 +690,6 @@ public class ConditionEditScreen extends Screen {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.composite.children"), font));
         y += rowHeight;
-
-        if (tempChildren.isEmpty()) {
-            tempChildren.addAll(children);
-        }
 
         for (int i = 0; i < tempChildren.size(); i++) {
             Condition child = tempChildren.get(i);
@@ -690,81 +755,220 @@ public class ConditionEditScreen extends Screen {
     }
 
     private Condition createCondition() {
-        return applyCustomDisplay(switch (condType) {
-            case "environment" -> {
+        ConditionEditorRegistry.Editor editor = ConditionEditorRegistry.getOrDefault(condType);
+        return applyCustomDisplay(editor.create(this));
+    }
+
+    Font fieldFont() {
+        return font;
+    }
+
+    void attachField(AbstractWidget widget) {
+        addRenderableWidget(widget);
+    }
+
+    // 条件编辑界面注册
+    static void registerEditors() {
+        ConditionEditorRegistry.register("environment", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildCommonFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof EnvironmentCondition env)) return;
+                screen.field = env.field;
+                screen.comparator = env.comparator;
+                screen.value = env.value;
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 EnvironmentCondition e = new EnvironmentCondition();
-                e.field = field;
-                e.comparator = comparator;
-                e.value = value; // 天气下拉直接更新了 value 字段
-                if (valueEdit != null) e.value = valueEdit.getValue(); // 覆盖以保证最新值
-                yield e;
+                e.field = screen.field;
+                e.comparator = screen.comparator;
+                e.value = screen.value; // 天气下拉直接更新了 value 字段
+                if (screen.valueEdit != null) e.value = screen.valueEdit.getValue(); // 覆盖以保证最新值
+                return e;
             }
-            case "player_state" -> {
+        });
+
+        ConditionEditorRegistry.register("player_state", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildCommonFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof PlayerStateCondition ps)) return;
+                screen.field = ps.field;
+                screen.comparator = ps.comparator;
+                screen.value = ps.value;
+                screen.playerStateEffectAmplifier = ps.effectAmplifier;
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 PlayerStateCondition p = new PlayerStateCondition();
-                p.field = field;
-                p.comparator = comparator;
-                p.value = valueEdit != null ? valueEdit.getValue() : value;
-                p.effectAmplifier = effectLevelEdit != null ? playerStateEffectAmplifier : -1;
-                yield p;
+                p.field = screen.field;
+                p.comparator = screen.comparator;
+                p.value = screen.valueEdit != null ? screen.valueEdit.getValue() : screen.value;
+                p.effectAmplifier = screen.effectLevelEdit != null ? screen.playerStateEffectAmplifier : -1;
+                return p;
             }
-            case "inventory" -> {
+        });
+
+        ConditionEditorRegistry.register("inventory", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildInventoryFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof InventoryCondition inv)) return;
+                screen.invSlot = inv.slot != null ? inv.slot : "HEAD";
+                if (inv.itemCondition != null) {
+                    screen.invItemId = inv.itemCondition.itemId;
+                    screen.invTagId = inv.itemCondition.tagId;
+                    screen.invNbtRule = inv.itemCondition.nbtRule;
+                    screen.invDurMin = inv.itemCondition.durabilityMinPercent;
+                    screen.invDurMax = inv.itemCondition.durabilityMaxPercent;
+                }
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 InventoryCondition ic = new InventoryCondition();
-                ic.slot = invSlot;
+                ic.slot = screen.invSlot;
                 SlotCondition sc = new SlotCondition();
-                sc.itemId = invItemId;
-                sc.tagId = invTagId;
-                sc.nbtRule = invNbtRule;
-                try { sc.durabilityMinPercent = Integer.parseInt(invDurMinEdit.getValue()); } catch(Exception ignored) {}
-                try { sc.durabilityMaxPercent = Integer.parseInt(invDurMaxEdit.getValue()); } catch(Exception ignored) {}
+                sc.itemId = screen.invItemId;
+                sc.tagId = screen.invTagId;
+                sc.nbtRule = screen.invNbtRule;
+                try { sc.durabilityMinPercent = Integer.parseInt(screen.invDurMinEdit.getValue()); } catch (Exception ignored) {}
+                try { sc.durabilityMaxPercent = Integer.parseInt(screen.invDurMaxEdit.getValue()); } catch (Exception ignored) {}
                 ic.itemCondition = sc;
-                yield ic;
+                return ic;
             }
-            case "iron_spell" -> {
+        });
+
+        ConditionEditorRegistry.register("iron_spell", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildIronSpellFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof IronSpellCondition is)) return;
+                screen.isField = is.field;
+                screen.isComparator = is.comparator;
+                screen.isValue = is.value;
+                screen.isValueRaw = rawOf(is.valueExpression, is.value);
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 IronSpellCondition is = new IronSpellCondition();
-                is.field = isField;
-                is.comparator = isComparator;
-                String raw = (isValueRaw != null ? isValueRaw : String.valueOf(isValue)).trim();
+                is.field = screen.isField;
+                is.comparator = screen.isComparator;
+                String raw = (screen.isValueRaw != null ? screen.isValueRaw : String.valueOf(screen.isValue)).trim();
                 if (ExpressionEvaluator.looksLikeExpression(raw)) {
                     is.valueExpression = raw;
-                    is.value = isValue;
+                    is.value = screen.isValue;
                 } else {
                     try { is.value = Double.parseDouble(raw); } catch (Exception ignored) {}
                 }
-                yield is;
+                return is;
             }
-            case "attribute" -> {
+        });
+
+        ConditionEditorRegistry.register("attribute", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildAttributeConditionFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof AttributeCondition attrCond)) return;
+                screen.attrId = attrCond.attributeId;
+                screen.attrComparator = attrCond.comparator;
+                screen.attrValue = attrCond.value;
+                screen.attrValueRaw = rawOf(attrCond.valueExpression, attrCond.value);
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 AttributeCondition ac = new AttributeCondition();
-                ac.attributeId = attrId;
-                ac.comparator = attrComparator;
-                String raw = (attrValueRaw != null ? attrValueRaw : String.valueOf(attrValue)).trim();
+                ac.attributeId = screen.attrId;
+                ac.comparator = screen.attrComparator;
+                String raw = (screen.attrValueRaw != null ? screen.attrValueRaw : String.valueOf(screen.attrValue)).trim();
                 if (ExpressionEvaluator.looksLikeExpression(raw)) {
                     ac.valueExpression = raw;
-                    ac.value = attrValue;
+                    ac.value = screen.attrValue;
                 } else {
                     try { ac.value = Double.parseDouble(raw); } catch (Exception ignored) {}
                 }
-                yield ac;
+                return ac;
             }
-            case "scoreboard" -> {
+        });
+
+        ConditionEditorRegistry.register("scoreboard", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildScoreboardConditionFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof ScoreboardCondition sbCond)) return;
+                screen.sbObjective = sbCond.objective != null ? sbCond.objective : "";
+                screen.sbComparator = sbCond.comparator != null ? sbCond.comparator : "GTE";
+                screen.sbValue = sbCond.value;
+                screen.sbValueRaw = rawOf(sbCond.valueExpression, sbCond.value);
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 ScoreboardCondition sbc = new ScoreboardCondition();
-                sbc.objective = sbObjective;
-                sbc.comparator = sbComparator;
-                String raw = (sbValueRaw != null ? sbValueRaw : String.valueOf(sbValue)).trim();
+                sbc.objective = screen.sbObjective;
+                sbc.comparator = screen.sbComparator;
+                String raw = (screen.sbValueRaw != null ? screen.sbValueRaw : String.valueOf(screen.sbValue)).trim();
                 if (ExpressionEvaluator.looksLikeExpression(raw)) {
                     sbc.valueExpression = raw;
-                    sbc.value = sbValue;
+                    sbc.value = screen.sbValue;
                 } else {
                     try { sbc.value = Double.parseDouble(raw); } catch (Exception ignored) {}
                 }
-                yield sbc;
+                return sbc;
             }
-            case "composite" -> {
+        });
+
+        ConditionEditorRegistry.register("composite", new ConditionEditorRegistry.Editor() {
+            @Override
+            public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+                screen.buildCompositeFields(centerX, y, totalWidth, rowHeight, spacing);
+            }
+
+            @Override
+            public void loadFrom(ConditionEditScreen screen, Condition entry) {
+                if (!(entry instanceof CompositeCondition comp)) return;
+                screen.compOp = comp.op;
+                // 编辑缓冲在这里初始化，不能靠"空"反推是否已初始化
+                screen.tempChildren.clear();
+                if (comp.children != null) screen.tempChildren.addAll(comp.children);
+            }
+
+            @Override
+            public Condition create(ConditionEditScreen screen) {
                 CompositeCondition cc = new CompositeCondition();
-                cc.op = compOp;
-                cc.children = new ArrayList<>(tempChildren);
-                yield cc;
+                cc.op = screen.compOp;
+                cc.children = new ArrayList<>(screen.tempChildren);
+                return cc;
             }
-            default -> null;
         });
     }
 
@@ -777,8 +981,13 @@ public class ConditionEditScreen extends Screen {
         return c;
     }
 
+    // HAS_EFFECT 使用两项比较符与效果等级，不走通用比较符
+    private boolean isHasEffect() {
+        return condType.equals("player_state") && "HAS_EFFECT".equals(field);
+    }
+
     private List<String> getFieldOptions() {
-        return switch (condType) {
+        List<String> base = switch (condType) {
             case "environment" -> {
                 List<String> options = new ArrayList<>(List.of("LIGHT_SKY", "LIGHT_BLOCK", "DIMENSION", "BIOME", "Y", "WEATHER",
                         "MOON_PHASE", "TIME", "TEMPERATURE"));
@@ -793,6 +1002,12 @@ public class ConditionEditScreen extends Screen {
                     "ON_GROUND", "ON_WALL", "FLYING", "SLEEPING", "RIDING","IS_HURT", "TAG");
             default -> List.of();
         };
+        // 外部注册的字段追加在内置字段之后
+        List<String> registered = ConditionFieldRegistry.fieldIdsOf(condType);
+        if (registered.isEmpty()) return base;
+        List<String> all = new ArrayList<>(base);
+        all.addAll(registered);
+        return all;
     }
 
     private Component getSlotButtonText() {
@@ -866,9 +1081,5 @@ public class ConditionEditScreen extends Screen {
     public void onClose() {
         assert minecraft != null;
         minecraft.setScreen(returnTo);
-    }
-
-    public Condition getExistingCondition() {
-        return existingCondition;
     }
 }

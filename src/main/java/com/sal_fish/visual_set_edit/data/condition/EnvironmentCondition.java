@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.data.condition;
 
 import com.google.gson.annotations.Expose;
+import com.sal_fish.visual_set_edit.api.ConditionFieldSpec;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.core.BlockPos;
@@ -53,7 +54,7 @@ public class EnvironmentCondition extends Condition {
             }
             case "L2H_CHUNK_DIFFICULTY" -> compare(IntegrationManager.getL2ChunkDifficulty(entity), comparator, Integer.parseInt(value));
             case "L2H_PLAYER_DIFFICULTY" -> compare(IntegrationManager.getL2PlayerDifficulty(entity), comparator, Integer.parseInt(value));
-            default -> false;
+            default -> ConditionFieldRegistry.test("environment", entity, field, comparator, value);
         };
         } catch (NumberFormatException e) {
             return false;
@@ -72,7 +73,7 @@ public class EnvironmentCondition extends Condition {
             case "TEMPERATURE" -> compare((int) (level.getBiome(pos).get().getBaseTemperature() * 100), comparator, t);
             case "L2H_CHUNK_DIFFICULTY" -> compare(IntegrationManager.getL2ChunkDifficulty(entity), comparator, t);
             case "L2H_PLAYER_DIFFICULTY" -> compare(IntegrationManager.getL2PlayerDifficulty(entity), comparator, t);
-            default -> false;
+            default -> ConditionFieldRegistry.testDynamic("environment", entity, field, comparator, t);
         };
     }
 
@@ -89,5 +90,15 @@ public class EnvironmentCondition extends Condition {
     }
 
     @Override
-    public String getDisplayText() { return field + " " + comparator + " " + value; }
+    public boolean requiresPlayer() {
+        ConditionFieldSpec spec = ConditionFieldRegistry.get("environment", field);
+        return spec != null && ConditionFieldRegistry.requiresPlayer(spec);
+    }
+
+    @Override
+    public String getDisplayText() {
+        ConditionFieldSpec spec = ConditionFieldRegistry.get("environment", field);
+        if (spec != null) return ConditionFieldRegistry.describe(spec, comparator, value);
+        return field + " " + comparator + " " + value;
+    }
 }

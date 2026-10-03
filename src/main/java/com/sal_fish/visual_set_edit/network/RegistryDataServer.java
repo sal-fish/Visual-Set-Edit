@@ -1,12 +1,12 @@
 package com.sal_fish.visual_set_edit.network;
 
 import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.levelgen.structure.Structure;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,7 +25,8 @@ public class RegistryDataServer {
                 ids.addAll(reg.keySet());
             }
             case "structure" -> {
-                ids.addAll(BuiltInRegistries.STRUCTURE_TYPE.keySet());
+                Registry<Structure> reg = server.registryAccess().registryOrThrow(Registries.STRUCTURE);
+                ids.addAll(reg.keySet());
             }
         }
         ids.sort(Comparator.comparing(ResourceLocation::toString));

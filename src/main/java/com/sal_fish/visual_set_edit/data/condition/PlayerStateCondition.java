@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.data.condition;
 
 import com.google.gson.annotations.Expose;
+import com.sal_fish.visual_set_edit.api.ConditionFieldSpec;
 import com.sal_fish.visual_set_edit.util.ExpressionEvaluator;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
@@ -20,6 +21,8 @@ public class PlayerStateCondition extends Condition {
 
     @Override
     public boolean requiresPlayer() {
+        ConditionFieldSpec spec = ConditionFieldRegistry.get("player_state", field);
+        if (spec != null) return ConditionFieldRegistry.requiresPlayer(spec);
         return "FOOD".equals(field) || "XP_LEVEL".equals(field) || "FLYING".equals(field);
     }
 
@@ -41,12 +44,14 @@ public class PlayerStateCondition extends Condition {
                         compareAbsolute(player.experienceLevel, comparator, value);
                 case "HAS_EFFECT" -> {
                     MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(value));
-                    if (ef == null || !entity.hasEffect(ef)) yield false;
-                    // effectAmplifier >= 0 时要求精确等于该等级（0 = 1级，1 = 2级…）；-1 = 不要求
-                    if (effectAmplifier >= 0) {
-                        yield Objects.requireNonNull(entity.getEffect(ef)).getAmplifier() == effectAmplifier;
-                    }
-                    yield true;
+                    if (ef == null) yield false;
+                    boolean has = entity.hasEffect(ef);
+                    // 不填等级：只看是否拥有；填了等级：要求拥有且等级相等
+                    boolean matched = effectAmplifier < 0
+                            ? has
+                            : has && Objects.requireNonNull(entity.getEffect(ef)).getAmplifier() == effectAmplifier;
+                    // 不等号对整个判定取反
+                    yield "NEQ".equals(comparator) ? !matched : matched;
                 }
                 case "FALL_DISTANCE" -> compareAbsolute((int) entity.fallDistance, comparator, value);
                 case "SUBMERGED" -> entity.isInWaterOrBubble();
@@ -92,7 +97,7 @@ public class PlayerStateCondition extends Condition {
 
                     yield true;
                 }
-                default -> false;
+                default -> ConditionFieldRegistry.test("player_state", entity, field, comparator, value);
             };
         } catch (NumberFormatException e) {
             return false;
@@ -110,7 +115,7 @@ public class PlayerStateCondition extends Condition {
             case "XP_LEVEL" -> entity instanceof Player player &&
                     compareFloat(player.experienceLevel, comparator, t);
             case "FALL_DISTANCE" -> compareFloat(entity.fallDistance, comparator, t);
-            default -> false;
+            default -> ConditionFieldRegistry.testDynamic("player_state", entity, field, comparator, t);
         };
     }
 
@@ -155,8 +160,13 @@ public class PlayerStateCondition extends Condition {
 
     @Override
     public String getDisplayText() {
-        if ("HAS_EFFECT".equals(field) && effectAmplifier >= 0) {
-            return "HAS_EFFECT " + value + " lvl==" + (effectAmplifier + 1);
+        ConditionFieldSpec spec = ConditionFieldRegistry.get("player_state", field);
+        if (spec != null) return ConditionFieldRegistry.describe(spec, comparator, value);
+        if ("HAS_EFFECT".equals(field)) {
+            // 不等号是对整句取反，前置感叹号
+            String prefix = "NEQ".equals(comparator) ? "!" : "";
+            if (effectAmplifier < 0) return prefix + "HAS_EFFECT " + value;
+            return prefix + "HAS_EFFECT " + value + " lvl==" + (effectAmplifier + 1);
         }
         return field + " " + comparator + " " + value;
     }

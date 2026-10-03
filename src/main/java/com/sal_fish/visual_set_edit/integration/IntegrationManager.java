@@ -1,5 +1,6 @@
 package com.sal_fish.visual_set_edit.integration;
 
+import com.sal_fish.visual_set_edit.data.SlotProviderRegistry;
 import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
 import com.sal_fish.visual_set_edit.util.VseLog;
 import net.minecraft.client.gui.screens.Screen;
@@ -93,6 +94,9 @@ public class IntegrationManager {
 
     //联动初始化
     public static void initCompat() {
+        if (isCuriosLoaded()) {
+            SlotProviderRegistry.register(new CuriosSlotProvider());
+        }
         if (isIronSpellsLoaded()) {
             Method init = findMethod("spellCompatInit",
                     "com.sal_fish.visual_set_edit.integration.SpellCompatHandler", "init");

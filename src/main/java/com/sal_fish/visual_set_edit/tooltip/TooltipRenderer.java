@@ -1,13 +1,14 @@
 package com.sal_fish.visual_set_edit.tooltip;
 
+import com.sal_fish.visual_set_edit.api.SlotProvider;
 import com.sal_fish.visual_set_edit.config.PresetManager;
+import com.sal_fish.visual_set_edit.data.ConditionStateCache;
 import com.sal_fish.visual_set_edit.data.Preset;
 import com.sal_fish.visual_set_edit.data.SetPhase;
 import com.sal_fish.visual_set_edit.data.SlotCondition;
+import com.sal_fish.visual_set_edit.data.SlotProviderRegistry;
 import com.sal_fish.visual_set_edit.data.condition.Condition;
 import com.sal_fish.visual_set_edit.data.effect.EffectEntry;
-import com.sal_fish.visual_set_edit.integration.IModIntegration;
-import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -39,7 +40,8 @@ public class TooltipRenderer {
         boolean altDown = Screen.hasAltDown();
         boolean ctrlDown = Screen.hasControlDown();
 
-        for (Preset preset : all) {
+        for (int presetIdx = 0; presetIdx < all.size(); presetIdx++) {
+            Preset preset = all.get(presetIdx);
             boolean belongs = false;
             for (SlotCondition cond : preset.getAllSlotConditions()) {
                 if ((cond.itemId != null && !cond.itemId.isEmpty()) || (cond.tagId != null && !cond.tagId.isEmpty())) {
@@ -91,7 +93,9 @@ public class TooltipRenderer {
             }
             // Shift 或 Ctrl：显示效果（Ctrl 额外显示条件）
             else if (shiftDown || ctrlDown) {
-                for (SetPhase phase : preset.phases) {
+                int stateTotal = ConditionStateCache.totalOf(all);
+                for (int phaseIdx = 0; phaseIdx < preset.phases.size(); phaseIdx++) {
+                    SetPhase phase = preset.phases.get(phaseIdx);
                     if (!phase.showTooltip) continue;
                     int matched = countMatched(player, phase);
                     boolean active = matched >= phase.requiredCount;
@@ -115,8 +119,14 @@ public class TooltipRenderer {
                     if (ctrlDown && !phase.additionalConditions.isEmpty()) {
                         event.getToolTip().add(Component.translatable("visual_set_edit.tooltip.conditions_header")
                                 .withStyle(ChatFormatting.DARK_AQUA));
-                        for (Condition cond : phase.additionalConditions) {
-                            boolean condMatched = player != null && cond.test(player);
+                        for (int condIdx = 0; condIdx < phase.additionalConditions.size(); condIdx++) {
+                            Condition cond = phase.additionalConditions.get(condIdx);
+                            // 优先用服务端算好的结果，客户端算不出的条件也能正确显示
+                            int flat = ConditionStateCache.indexOf(all, presetIdx, phaseIdx, condIdx);
+                            Boolean synced = ConditionStateCache.get(flat, stateTotal);
+                            boolean condMatched = synced != null
+                                    ? synced
+                                    : player != null && cond.test(player);
                             ChatFormatting condColor = condMatched ? ChatFormatting.GREEN : ChatFormatting.GRAY;
                             String condIcon = condMatched ? "☑" : "☐";
                             event.getToolTip().add(parseFormattedText("   " + condIcon + " " + cond.getFinalDisplayText(),
@@ -263,25 +273,36 @@ public class TooltipRenderer {
 
     public static boolean isSlotMatched(Player player, SlotCondition cond) {
         if (player == null) return false;
-        if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
-            if (!IntegrationManager.isCuriosLoaded()) return false;
-            for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
-                List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, slotId);
-                for (ItemStack s : stacks) {
+        if (SlotProviderRegistry.isAnyKey(cond.slot)) {
+            SlotProvider provider = SlotProviderRegistry.get(SlotProviderRegistry.providerIdOf(cond.slot));
+            if (provider == null) return false;
+            List<String> slotIds = provider.slotIds(player);
+            if (slotIds == null) return false;
+            for (String slotId : slotIds) {
+                for (ItemStack s : safeStacks(provider, player, slotId)) {
                     if (cond.matches(s)) return true;
                 }
             }
             return false;
-        } else if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
-            String realSlotId = cond.slot.substring(7);
-            List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, realSlotId);
-            for (ItemStack s : stacks) {
+        } else if (SlotProviderRegistry.isProviderKey(cond.slot)) {
+            SlotProvider provider = SlotProviderRegistry.get(SlotProviderRegistry.providerIdOf(cond.slot));
+            if (provider == null) return false;
+            for (ItemStack s : safeStacks(provider, player, SlotProviderRegistry.slotIdOf(cond.slot))) {
                 if (cond.matches(s)) return true;
             }
             return false;
         } else {
             ItemStack s = getStackForSlot(player, cond.slot);
             return cond.matches(s);
+        }
+    }
+
+    private static List<ItemStack> safeStacks(SlotProvider provider, Player player, String slotId) {
+        try {
+            List<ItemStack> stacks = provider.stacks(player, slotId);
+            return stacks != null ? stacks : Collections.emptyList();
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
@@ -311,37 +332,40 @@ public class TooltipRenderer {
         Map<String, Set<Integer>> usedIndices = new HashMap<>();
 
         for (SlotCondition cond : phase.slotConditions) {
-            if (cond.slot.equals(IModIntegration.ANY_CURIOS_SLOT)) {
-                if (!IntegrationManager.isCuriosLoaded()) continue;
+            if (SlotProviderRegistry.isAnyKey(cond.slot)) {
+                SlotProvider provider = SlotProviderRegistry.get(SlotProviderRegistry.providerIdOf(cond.slot));
+                if (provider == null) continue;
+                List<String> slotIds = provider.slotIds(player);
+                if (slotIds == null) continue;
                 boolean found = false;
-                for (String slotId : IntegrationManager.getCurios().getExtraSlots()) {
-                    List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, slotId);
+                for (String slotId : slotIds) {
+                    String key = provider.id() + ":" + slotId;
+                    List<ItemStack> stacks = safeStacks(provider, player, slotId);
                     for (int i = 0; i < stacks.size(); i++) {
-                        if (usedIndices.containsKey(slotId) && usedIndices.get(slotId).contains(i)) {
+                        if (usedIndices.containsKey(key) && usedIndices.get(key).contains(i)) {
                             continue;
                         }
-                        ItemStack stack = stacks.get(i);
-                        if (cond.matches(stack)) {
+                        if (cond.matches(stacks.get(i))) {
                             found = true;
-                            usedIndices.computeIfAbsent(slotId, k -> new HashSet<>()).add(i);
+                            usedIndices.computeIfAbsent(key, k -> new HashSet<>()).add(i);
                             break;
                         }
                     }
                     if (found) break;
                 }
                 if (found) c++;
-            } else if (cond.slot.startsWith("curios:") && IntegrationManager.isCuriosLoaded()) {
-                String realSlotId = cond.slot.substring(7);
-                List<ItemStack> stacks = IntegrationManager.getCurios().getSlotStacks(player, realSlotId);
+            } else if (SlotProviderRegistry.isProviderKey(cond.slot)) {
+                SlotProvider provider = SlotProviderRegistry.get(SlotProviderRegistry.providerIdOf(cond.slot));
+                if (provider == null) continue;
+                List<ItemStack> stacks = safeStacks(provider, player, SlotProviderRegistry.slotIdOf(cond.slot));
                 boolean found = false;
                 for (int i = 0; i < stacks.size(); i++) {
-                    if (usedIndices.containsKey(realSlotId) && usedIndices.get(realSlotId).contains(i)) {
+                    if (usedIndices.containsKey(cond.slot) && usedIndices.get(cond.slot).contains(i)) {
                         continue;
                     }
-                    ItemStack stack = stacks.get(i);
-                    if (cond.matches(stack)) {
+                    if (cond.matches(stacks.get(i))) {
                         found = true;
-                        usedIndices.computeIfAbsent(realSlotId, k -> new HashSet<>()).add(i);
+                        usedIndices.computeIfAbsent(cond.slot, k -> new HashSet<>()).add(i);
                         break;
                     }
                 }

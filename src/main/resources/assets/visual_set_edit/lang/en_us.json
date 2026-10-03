@@ -1,4 +1,6 @@
 {
+  "visual_set_edit.effect.missing": "Unknown effect: %s",
+  "visual_set_edit.condition.missing": "Unknown condition: %s",
   "visual_set_edit.color.black": "Black",
   "visual_set_edit.color.blue": "Blue",
   "visual_set_edit.color.dark_gray": "Dark Gray",
@@ -137,7 +139,7 @@
   "visual_set_edit.gui.effect.ability.display": "Ability: %s",
   "visual_set_edit.gui.effect.ability.fall_immunity": "Fall Immunity",
   "visual_set_edit.gui.effect.ability.flight": "Flight",
-  "visual_set_edit.gui.effect.ability.id": "Ability ID (FLIGHT/WATER_WALK/FALL_IMMUNITY)",
+  "visual_set_edit.gui.effect.ability.id": "Ability ID",
   "visual_set_edit.gui.effect.attribute.amount": "Amount",
   "visual_set_edit.gui.effect.attribute.cooldown": "Cooldown (s)",
   "visual_set_edit.gui.effect.attribute.display": "%1$s %2$s",

@@ -1,6 +1,7 @@
 package com.sal_fish.visual_set_edit.gui;
 
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
+import com.sal_fish.visual_set_edit.data.SlotProviderRegistry;
 import com.sal_fish.visual_set_edit.integration.IModIntegration;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,6 +22,7 @@ public class CuriosItemRegisterScreen extends Screen {
     private final Screen parent;
     private final String initialItemId;
     private String editingNbt; // 当前编辑的条目 NBT，null 表示不限 NBT
+    private boolean editingExistingEntry; // 进入编辑时是否命中注册表里的已有条目
 
     private String selectedItemId = null;
     private final List<String> selectedSlots = new ArrayList<>();
@@ -83,12 +85,14 @@ public class CuriosItemRegisterScreen extends Screen {
         }
 
         if (target != null) {
+            editingExistingEntry = true;
             selectedSlots.addAll(target.slots);
             canQuickEquip = target.canQuickEquip;
             canRemove = target.canRemove;
             capturedNbt = target.nbt != null ? target.nbt : "";
             editingNbt = target.nbt; // 保持同步
         } else {
+            editingExistingEntry = false;
             // 新建条目，使用传入的 nbt（如果有）作为初始 NBT
             capturedNbt = (nbt != null) ? nbt : "";
             editingNbt = (nbt != null && !nbt.isEmpty()) ? nbt : null;
@@ -96,6 +100,19 @@ public class CuriosItemRegisterScreen extends Screen {
             canQuickEquip = true;
             canRemove = true;
         }
+    }
+
+    // 当前编辑条目在注册表里的索引；-1 表示不是编辑已有条目
+    private int editingEntryIndex() {
+        if (selectedItemId == null || !editingExistingEntry) return -1;
+        List<CuriosItemMappingManager.RegisteredEntry> entries =
+                CuriosItemMappingManager.getEntries(selectedItemId);
+        for (int i = 0; i < entries.size(); i++) {
+            CuriosItemMappingManager.RegisteredEntry e = entries.get(i);
+            boolean match = editingNbt != null ? Objects.equals(e.nbt, editingNbt) : e.nbt == null;
+            if (match) return i;
+        }
+        return -1;
     }
 
     @Override
@@ -174,12 +191,10 @@ public class CuriosItemRegisterScreen extends Screen {
             slotList.setLeftPos(centerX);
             addWidget(slotList);
 
-            List<String> allSlots = IntegrationManager.getCurios().getExtraSlots();
-            for (String slotId : allSlots) {
-                String fullSlotId = "curios:" + slotId;
+            for (String fullSlotId : SlotProviderRegistry.slotKeysOf(null, "curios")) {
                 slotList.addEntry(new SlotEntry(fullSlotId));
             }
-            slotList.addEntry(new SlotEntry(IModIntegration.ANY_CURIOS_SLOT));
+            slotList.addEntry(new SlotEntry("curios" + SlotProviderRegistry.ANY_SUFFIX));
             y += listHeight + 5;
         }
 
@@ -213,49 +228,25 @@ public class CuriosItemRegisterScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.save"),
                 btn -> {
                     if (selectedItemId != null) {
+                        // 只操作当前编辑的那条，该物品的其他 NBT 条目不受影响
+                        int editingIndex = editingEntryIndex();
                         if (selectedSlots.isEmpty()) {
-                            // 删除对应条目
-                            if (editingNbt != null) {
-                                List<CuriosItemMappingManager.RegisteredEntry> entries =
-                                        CuriosItemMappingManager.getEntries(selectedItemId);
-                                for (int i = 0; i < entries.size(); i++) {
-                                    if (Objects.equals(entries.get(i).nbt, editingNbt)) {
-                                        CuriosItemMappingManager.removeEntry(selectedItemId, i);
-                                        break;
-                                    }
-                                }
-                            } else {
-                                CuriosItemMappingManager.removeAllEntries(selectedItemId);
+                            // 取消全部勾选 = 删除当前条目
+                            if (editingIndex >= 0) {
+                                CuriosItemMappingManager.removeEntry(selectedItemId, editingIndex);
                             }
                         } else {
-                            // 添加或更新条目
-                            if (editingNbt != null) {
-                                // 先移除旧条目（如果存在）
-                                List<CuriosItemMappingManager.RegisteredEntry> entries =
-                                        new ArrayList<>(CuriosItemMappingManager.getEntries(selectedItemId));
-                                for (int i = 0; i < entries.size(); i++) {
-                                    if (Objects.equals(entries.get(i).nbt, editingNbt)) {
-                                        CuriosItemMappingManager.removeEntry(selectedItemId, i);
-                                        break;
-                                    }
-                                }
-                                CuriosItemMappingManager.addEntry(
-                                        selectedItemId,
-                                        new ArrayList<>(selectedSlots),
-                                        canQuickEquip,
-                                        canRemove,
-                                        editingNbt.isEmpty() ? null : editingNbt
-                                );
-                            } else {
-                                // 不限 NBT 的新条目
-                                CuriosItemMappingManager.addEntry(
-                                        selectedItemId,
-                                        new ArrayList<>(selectedSlots),
-                                        canQuickEquip,
-                                        canRemove,
-                                        null
-                                );
+                            // 替换当前条目，不存在则新增
+                            if (editingIndex >= 0) {
+                                CuriosItemMappingManager.removeEntry(selectedItemId, editingIndex);
                             }
+                            CuriosItemMappingManager.addEntry(
+                                    selectedItemId,
+                                    new ArrayList<>(selectedSlots),
+                                    canQuickEquip,
+                                    canRemove,
+                                    (editingNbt == null || editingNbt.isEmpty()) ? null : editingNbt
+                            );
                         }
                     }
                     assert minecraft != null;
@@ -329,10 +320,6 @@ public class CuriosItemRegisterScreen extends Screen {
         minecraft.setScreen(parent);
     }
 
-    public String getInitialItemId() {
-        return initialItemId;
-    }
-
     private class SlotEntry extends ScrollableSelectionList.Entry {
         final String fullSlotId;
 
@@ -356,7 +343,9 @@ public class CuriosItemRegisterScreen extends Screen {
             if (fullSlotId.equals(IModIntegration.ANY_CURIOS_SLOT)) {
                 text = prefix + Component.translatable("visual_set_edit.slot.any").getString();
             } else {
-                text = prefix + Component.translatable("curios.identifier." + slotId).getString();
+                // 槽位翻译名可能重名，补上槽位键区分
+                text = prefix + Component.translatable("curios.identifier." + slotId).getString()
+                        + " (" + fullSlotId + ")";
             }
             graphics.drawString(font, text, left, top + (rowHeight - 8) / 2, 0xFFFFFF);
         }

@@ -21,7 +21,6 @@ public class TooltipEditScreen extends Screen {
     private static final int MAX_LINES = 10;
     private static final int LINE_HEIGHT = 20;
     private static final int LINE_SPACING = 2;
-    private static final int EDIT_WIDTH = 200;
     private static final int MARGIN = 20;
     private EditBox hexColorInput;
     private Button insertHexButton;

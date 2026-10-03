@@ -23,8 +23,6 @@ public class SlotConditionEditScreen extends Screen {
     private ResourceLocation selectedItem;
     private String selectedTag;
 
-    private static final String[] SLOTS = {"HEAD", "CHEST", "LEGS", "FEET", "MAINHAND", "OFFHAND"};
-
     public SlotConditionEditScreen(SetPhase phase, int index, Screen parent) {
         super(Component.translatable("visual_set_edit.gui.edit_slot_condition"));
         this.phase = phase;

@@ -28,6 +28,7 @@ public class ConditionListScreen extends Screen {
 
     @Override
     protected void init() {
+        clearWidgets();
         int x = width / 2 - 100;
         int y = 40;
 
