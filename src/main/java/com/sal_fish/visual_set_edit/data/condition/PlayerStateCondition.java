@@ -46,12 +46,17 @@ public class PlayerStateCondition extends Condition {
                     MobEffect ef = ForgeRegistries.MOB_EFFECTS.getValue(new ResourceLocation(value));
                     if (ef == null) yield false;
                     boolean has = entity.hasEffect(ef);
-                    // 不填等级：只看是否拥有；填了等级：要求拥有且等级相等
-                    boolean matched = effectAmplifier < 0
-                            ? has
-                            : has && Objects.requireNonNull(entity.getEffect(ef)).getAmplifier() == effectAmplifier;
+                    boolean matched;
+                    if (effectAmplifier < 0) {
+                        matched = has;
+                    } else {
+                        matched = has && compareAbsolute(
+                                Objects.requireNonNull(entity.getEffect(ef)).getAmplifier(),
+                                levelOperator(comparator),
+                                String.valueOf(effectAmplifier));
+                    }
                     // 不等号对整个判定取反
-                    yield "NEQ".equals(comparator) ? !matched : matched;
+                    yield "NEQ".equals(comparator) != matched;
                 }
                 case "FALL_DISTANCE" -> compareAbsolute((int) entity.fallDistance, comparator, value);
                 case "SUBMERGED" -> entity.isInWaterOrBubble();
@@ -158,6 +163,26 @@ public class PlayerStateCondition extends Condition {
         };
     }
 
+    // 不等号只对整句取反，等级比较恒按"等于"；其余比较符原样使用，未知值按等于处理
+    private static String levelOperator(String comparator) {
+        if ("NEQ".equals(comparator)) return "EQ";
+        return switch (comparator == null ? "" : comparator) {
+            case "GT", "GTE", "LT", "LTE" -> comparator;
+            default -> "EQ";
+        };
+    }
+
+    // 等级比较符的显示符号
+    private static String operatorSymbol(String comparator) {
+        return switch (comparator == null ? "" : comparator) {
+            case "GT" -> ">";
+            case "GTE" -> ">=";
+            case "LT" -> "<";
+            case "LTE" -> "<=";
+            default -> "==";
+        };
+    }
+
     @Override
     public String getDisplayText() {
         ConditionFieldSpec spec = ConditionFieldRegistry.get("player_state", field);
@@ -166,7 +191,8 @@ public class PlayerStateCondition extends Condition {
             // 不等号是对整句取反，前置感叹号
             String prefix = "NEQ".equals(comparator) ? "!" : "";
             if (effectAmplifier < 0) return prefix + "HAS_EFFECT " + value;
-            return prefix + "HAS_EFFECT " + value + " lvl==" + (effectAmplifier + 1);
+            return prefix + "HAS_EFFECT " + value + " lvl"
+                    + operatorSymbol(comparator) + (effectAmplifier + 1);
         }
         return field + " " + comparator + " " + value;
     }

@@ -182,7 +182,7 @@ public class ConditionEditScreen extends Screen {
             return;
         }
 
-        // 比较符部分：IS_HURT 和 TAG 不需要通用比较符，HAS_EFFECT 用两项比较符
+        // 比较符部分：IS_HURT 和 TAG 不需要通用比较符，HAS_EFFECT 另有适用比较符
         if (!"IS_HURT".equals(field) && !"TAG".equals(field) && !isHasEffect()) {
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.condition.comparator"), font));
@@ -333,16 +333,19 @@ public class ConditionEditScreen extends Screen {
             }
             y += rowHeight + spacing;
 
-            // HAS_EFFECT：比较符（等于/不等于）+ 效果等级（-1 = 任意，0 = 1级，1 = 2级…）
+            // HAS_EFFECT：比较符 + 效果等级
             if (isHasEffect()) {
                 addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                         Component.translatable("visual_set_edit.gui.condition.comparator"), font));
                 y += rowHeight;
-                // 该字段只有等于/不等于两种语义，其余取值一律归到等于
-                comparator = "NEQ".equals(comparator) ? "NEQ" : "EQ";
+                // 非法取值一律归到等于
+                if (!"NEQ".equals(comparator) && !"GT".equals(comparator) && !"GTE".equals(comparator)
+                        && !"LT".equals(comparator) && !"LTE".equals(comparator)) {
+                    comparator = "EQ";
+                }
                 CycleButton<String> effectComparatorButton = CycleButton.<String>builder(s ->
                                 Component.translatable("visual_set_edit.gui.condition.comparator." + s))
-                        .withValues("EQ", "NEQ")
+                        .withValues("EQ", "NEQ", "GT", "GTE", "LT", "LTE")
                         .displayOnlyValue()
                         .withInitialValue(comparator)
                         .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -981,7 +984,6 @@ public class ConditionEditScreen extends Screen {
         return c;
     }
 
-    // HAS_EFFECT 使用两项比较符与效果等级，不走通用比较符
     private boolean isHasEffect() {
         return condType.equals("player_state") && "HAS_EFFECT".equals(field);
     }
