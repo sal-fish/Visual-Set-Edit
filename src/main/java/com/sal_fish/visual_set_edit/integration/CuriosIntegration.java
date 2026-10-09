@@ -8,6 +8,7 @@ import com.sal_fish.visual_set_edit.event.ActiveSetTracker;
 import com.sal_fish.visual_set_edit.event.SetEventHandler;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
@@ -109,7 +110,10 @@ public class CuriosIntegration implements IModIntegration {
                     String realSlotId = slotEntry.slotId.startsWith("curios:") ?
                             slotEntry.slotId.substring(7) : slotEntry.slotId;
                     CuriosApi.getCuriosInventory(newEntity).ifPresent(handler -> {
-                        handler.removeSlotModifier(realSlotId, UUID.fromString(slotEntry.uniqueId));
+                        UUID uuid = UUID.fromString(slotEntry.uniqueId);
+                        handler.removeSlotModifier(realSlotId, uuid);
+                        handler.addTransientSlotModifier(realSlotId, uuid, "VSE Slot Modifier", slotEntry.amount,
+                                AttributeModifier.Operation.ADDITION);
                     });
                 }
             }
