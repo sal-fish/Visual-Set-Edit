@@ -520,6 +520,7 @@ public class ConditionEditScreen extends Screen {
                 Component.translatable("visual_set_edit.gui.condition.inventory.min_durability"));
         invDurMinEdit.setMaxLength(5201314);
         invDurMinEdit.setValue(String.valueOf(invDurMin));
+        invDurMinEdit.setResponder(s -> { try { invDurMin = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(invDurMinEdit);
         y += rowHeight + spacing;
 
@@ -529,6 +530,7 @@ public class ConditionEditScreen extends Screen {
         invDurMaxEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.inventory.max_durability"));
         invDurMaxEdit.setValue(String.valueOf(invDurMax));
+        invDurMaxEdit.setResponder(s -> { try { invDurMax = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(invDurMaxEdit);
         y += rowHeight + spacing + 6;
 

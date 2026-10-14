@@ -11,6 +11,7 @@
   "visual_set_edit.color.white": "白色",
   "visual_set_edit.color.yellow": "黄色",
   "visual_set_edit.command.reload.success": "VSE 预设已重载。",
+  "visual_set_edit.command.gui.disabled": "没有权限",
   "visual_set_edit.condition.comparator.EQ": "等于",
   "visual_set_edit.condition.comparator.GT": "大于",
   "visual_set_edit.condition.comparator.GTE": "大于等于",

@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.sal_fish.visual_set_edit.config.CuriosItemMappingManager;
 import com.sal_fish.visual_set_edit.config.PresetManager;
 import com.sal_fish.visual_set_edit.config.ScoreboardObjectiveManager;
+import com.sal_fish.visual_set_edit.config.VseConfig;
 import com.sal_fish.visual_set_edit.event.SetEventHandler;
 import com.sal_fish.visual_set_edit.integration.IntegrationManager;
 import com.sal_fish.visual_set_edit.network.ConditionStateSyncServer;
@@ -13,6 +14,7 @@ import com.sal_fish.visual_set_edit.network.VsePacketHandler;
 import com.sal_fish.visual_set_edit.proxy.ClientProxy;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.MinecraftForge;
@@ -20,7 +22,9 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.network.PacketDistributor;
@@ -38,6 +42,8 @@ public class VisualSetEdit {
     );
 
     public VisualSetEdit() {
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, VseConfig.SPEC);
+
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::commonSetup);
 
@@ -83,6 +89,10 @@ public class VisualSetEdit {
                     return 1;
                 }))
                 .then(Commands.literal("gui").executes(ctx -> {
+                    if (!VseConfig.ALLOW_COMMAND_GUI.get()) {
+                        ctx.getSource().sendFailure(Component.translatable("visual_set_edit.command.gui.disabled"));
+                        return 0;
+                    }
                     ServerPlayer player = ctx.getSource().getPlayerOrException();
                     VsePacketHandler.INSTANCE.send(
                             PacketDistributor.PLAYER.with(() -> player),

@@ -11,6 +11,7 @@
   "visual_set_edit.color.white": "White",
   "visual_set_edit.color.yellow": "Yellow",
   "visual_set_edit.command.reload.success": "VSE presets reloaded.",
+  "visual_set_edit.command.gui.disabled": "You CANNOT Do It",
   "visual_set_edit.condition.comparator.EQ": "=",
   "visual_set_edit.condition.comparator.GT": ">",
   "visual_set_edit.condition.comparator.GTE": "≥",

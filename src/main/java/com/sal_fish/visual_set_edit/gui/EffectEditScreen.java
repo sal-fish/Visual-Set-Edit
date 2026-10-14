@@ -185,6 +185,7 @@ public class EffectEditScreen extends Screen {
         customDisplayTextEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.custom_display_text"));
         customDisplayTextEdit.setMaxLength(256); customDisplayTextEdit.setValue(customDisplayText);
+        customDisplayTextEdit.setResponder(s -> customDisplayText = s);
         addRenderableWidget(customDisplayTextEdit); y += rowHeight + spacing;
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -277,6 +278,7 @@ public class EffectEditScreen extends Screen {
             amplifierEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.effect.potion.amplifier"));
             amplifierEdit.setMaxLength(5201314); amplifierEdit.setValue(String.valueOf(amplifier));
+            amplifierEdit.setResponder(s -> { try { amplifier = Integer.parseInt(s); } catch (Exception ignored) {} });
             addRenderableWidget(amplifierEdit); y += rowHeight + spacing;
 
             addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
@@ -293,6 +295,7 @@ public class EffectEditScreen extends Screen {
             cooldownEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                     Component.translatable("visual_set_edit.gui.effect.potion.cooldown"));
             cooldownEdit.setValue(String.valueOf(cooldownSeconds)); cooldownEdit.setMaxLength(5201314);
+            cooldownEdit.setResponder(s -> { try { cooldownSeconds = Integer.parseInt(s); } catch (Exception ignored) {} });
             cooldownEdit.visible = (durationSeconds != -1);
             addRenderableWidget(cooldownEdit); y += rowHeight + spacing;
         } else { amplifierEdit = null; durationEdit = null; cooldownEdit = null; }
@@ -335,6 +338,7 @@ public class EffectEditScreen extends Screen {
         amountEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.attribute.amount"));
         amountEdit.setValue(String.valueOf(amount)); addRenderableWidget(amountEdit); y += rowHeight + spacing;
+        amountEdit.setResponder(s -> { try { amount = Double.parseDouble(s); } catch (Exception ignored) {} });
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.attribute.operation"), font)); y += rowHeight;
@@ -464,6 +468,7 @@ public class EffectEditScreen extends Screen {
                 Component.translatable("visual_set_edit.gui.effect.command.activate"));
         commandsEdit.setMaxLength(5201314);
         commandsEdit.setValue(commands);
+        commandsEdit.setResponder(s -> commands = s);
         addRenderableWidget(commandsEdit);
         y += rowHeight + spacing;
 
@@ -492,6 +497,7 @@ public class EffectEditScreen extends Screen {
                     Component.translatable("visual_set_edit.gui.effect.command.repeat_interval"));
             commandIntervalEdit.setMaxLength(10);
             commandIntervalEdit.setValue(String.valueOf(commandRepeatInterval));
+            commandIntervalEdit.setResponder(s -> { try { commandRepeatInterval = Integer.parseInt(s); } catch (Exception ignored) {} });
             addRenderableWidget(commandIntervalEdit);
             y += rowHeight + spacing;
         } else {
@@ -561,6 +567,7 @@ public class EffectEditScreen extends Screen {
         spellLevelEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.iron_spell.level"));
         spellLevelEdit.setValue(String.valueOf(spellLevel)); spellLevelEdit.setMaxLength(5201314);
+        spellLevelEdit.setResponder(s -> { try { spellLevel = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(spellLevelEdit); y += rowHeight + spacing;
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -585,6 +592,7 @@ public class EffectEditScreen extends Screen {
         slotCountAmountEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.slot_count.amount"));
         slotCountAmountEdit.setMaxLength(256); slotCountAmountEdit.setValue(String.valueOf(slotCountAmount));
+        slotCountAmountEdit.setResponder(s -> { try { slotCountAmount = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(slotCountAmountEdit); y += rowHeight + spacing;
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -614,6 +622,7 @@ public class EffectEditScreen extends Screen {
         boostAmountEdit = new EditBox(font, centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.spell_level_boost.amount"));
         boostAmountEdit.setMaxLength(9); boostAmountEdit.setValue(String.valueOf(boostAmount));
+        boostAmountEdit.setResponder(s -> { try { boostAmount = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(boostAmountEdit); y += rowHeight + spacing;
         y = buildCustomDisplayFields(centerX, y, totalWidth, rowHeight, spacing);
         saveButton(centerX, y, totalWidth, rowHeight);
@@ -647,6 +656,7 @@ public class EffectEditScreen extends Screen {
                 Component.translatable("visual_set_edit.gui.effect.l2hostility_trait.level"));
         l2traitLevelEdit.setMaxLength(3);
         l2traitLevelEdit.setValue(String.valueOf(l2traitLevel));
+        l2traitLevelEdit.setResponder(s -> { try { l2traitLevel = Integer.parseInt(s); } catch (Exception ignored) {} });
         addRenderableWidget(l2traitLevelEdit);
         y += rowHeight + spacing;
 
