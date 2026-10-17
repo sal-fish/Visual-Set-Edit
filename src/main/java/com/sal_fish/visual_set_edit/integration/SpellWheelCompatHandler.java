@@ -26,6 +26,8 @@ import java.util.UUID;
 
 public class SpellWheelCompatHandler {
 
+    // 注入法术用的独立槽位名，不能与装备槽重名，否则会顶掉物品自带法术的选中记录
+    private static final String VSE_SLOT = "vse";
     private static final Map<UUID, String> lastActiveSignature = new HashMap<>();
     private static final int CHECK_INTERVAL_TICKS = 20; // 每 1 秒检测一次套装状态变化
 
@@ -52,7 +54,7 @@ public class SpellWheelCompatHandler {
                     AbstractSpell spell = SpellRegistry.REGISTRY.get().getValue(rl);
                     if (spell == null) continue;
                     int level = Math.max(1, spellEffect.spellLevel);
-                    event.addSelectionOption(new SpellData(spell, level), SpellSelectionManager.MAINHAND, index++);
+                    event.addSelectionOption(new SpellData(spell, level), VSE_SLOT, index++);
                 }
             }
         }
