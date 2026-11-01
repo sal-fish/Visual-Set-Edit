@@ -15,15 +15,24 @@ import java.util.Comparator;
 import java.util.function.Consumer;
 
 public class SpellListScreen extends Screen {
+    // 首行"全部"占位 id，选中后回传 null 表示不限定
+    private static final ResourceLocation ALL = ResourceLocation.fromNamespaceAndPath("visual_set_edit", "all");
+
     private final Screen parent;
     private final Consumer<ResourceLocation> callback;
+    private final boolean allOption;
     private ScrollableSelectionList list;
     private EditBox searchField;
 
     public SpellListScreen(Screen parent, Consumer<ResourceLocation> callback) {
+        this(parent, callback, false);
+    }
+
+    public SpellListScreen(Screen parent, Consumer<ResourceLocation> callback, boolean allOption) {
         super(Component.translatable("visual_set_edit.gui.select_spell"));
         this.parent = parent;
         this.callback = callback;
+        this.allOption = allOption;
     }
 
     @Override
@@ -31,7 +40,7 @@ public class SpellListScreen extends Screen {
         int listWidth = width - 40;
         int listHeight = height - 80;
         list = new ScrollableSelectionList(minecraft, listWidth, listHeight, 40, 18, entry -> {
-            callback.accept(entry.getId());
+            callback.accept(ALL.equals(entry.getId()) ? null : entry.getId());
             if (minecraft != null) {
                 minecraft.setScreen(parent);
             }
@@ -48,6 +57,13 @@ public class SpellListScreen extends Screen {
 
     private void updateList(String filter) {
         list.clearAllEntries();
+        if (allOption) {
+            list.addEntry(new ScrollableSelectionList.Entry(
+                    Component.translatable("visual_set_edit.gui.effect.spell_level_boost.all_spells"),
+                    ALL,
+                    null
+            ));
+        }
         IForgeRegistry<AbstractSpell> spellRegistry = SpellRegistry.REGISTRY.get();
         if (spellRegistry == null) return;
 

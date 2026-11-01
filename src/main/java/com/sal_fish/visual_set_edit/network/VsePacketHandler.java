@@ -60,5 +60,12 @@ public class VsePacketHandler {
                 S2CConditionStatePacket::decode,
                 S2CConditionStatePacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        // 客户端 → 服务端
+        INSTANCE.registerMessage(id++, C2SRequestGuiPacket.class,
+                C2SRequestGuiPacket::encode,
+                C2SRequestGuiPacket::decode,
+                C2SRequestGuiPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }

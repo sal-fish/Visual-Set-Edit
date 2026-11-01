@@ -80,7 +80,9 @@ public class EffectEditScreen extends Screen {
     private Button selectSlotButton;
 
     // Spell Level Boost
+    private String boostMode = "spell";          // spell 单法术 / school 流派
     private String boostSpellId = "";
+    private String boostSchoolId = "";
     private int boostAmount = 1;
     private EditBox boostAmountEdit;
     private Button selectBoostSpellButton;
@@ -601,21 +603,35 @@ public class EffectEditScreen extends Screen {
     }
 
     private int buildSpellLevelBoostFields(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
-        addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
-                Component.translatable("visual_set_edit.gui.effect.spell_level_boost.spell"), font)); y += rowHeight;
+        CycleButton<String> modeButton = CycleButton.<String>builder(s -> Component.translatable("visual_set_edit.gui.effect.spell_level_boost.mode." + s))
+                .withValues("spell", "school")
+                .displayOnlyValue()
+                .withInitialValue("school".equals(boostMode) ? "school" : "spell")
+                .create(centerX - totalWidth / 2, y, totalWidth, rowHeight,
+                        Component.empty(),
+                        (btn, val) -> {
+                            boostMode = val;
+                            selectBoostSpellButton.setMessage(getBoostSpellButtonText());
+                        });
+        addRenderableWidget(modeButton); y += rowHeight + spacing;
+
         selectBoostSpellButton = Button.builder(getBoostSpellButtonText(), btn -> {
             assert minecraft != null;
-            Screen screen = IntegrationManager.createSpellListScreen(this, rl -> {
-                boostSpellId = rl.toString();
-                selectBoostSpellButton.setMessage(getBoostSpellButtonText());
-            });
+            Screen screen;
+            if ("school".equals(boostMode)) {
+                screen = IntegrationManager.createSchoolListScreen(this, rl -> {
+                    boostSchoolId = rl != null ? rl.toString() : "";
+                    selectBoostSpellButton.setMessage(getBoostSpellButtonText());
+                }, true);
+            } else {
+                screen = IntegrationManager.createSpellListScreen(this, rl -> {
+                    boostSpellId = rl != null ? rl.toString() : "";
+                    selectBoostSpellButton.setMessage(getBoostSpellButtonText());
+                }, true);
+            }
             if (screen != null) minecraft.setScreen(screen);
         }).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build();
         addRenderableWidget(selectBoostSpellButton); y += rowHeight + spacing;
-
-        addRenderableWidget(Button.builder(Component.translatable("visual_set_edit.gui.effect.spell_level_boost.all_spells"),
-                btn -> { boostSpellId = ""; selectBoostSpellButton.setMessage(getBoostSpellButtonText()); }
-        ).pos(centerX - totalWidth / 2, y).size(totalWidth, rowHeight).build()); y += rowHeight + spacing;
 
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.effect.spell_level_boost.amount"), font)); y += rowHeight;
@@ -1007,6 +1023,11 @@ public class EffectEditScreen extends Screen {
     }
 
     private Component getBoostSpellButtonText() {
+        if ("school".equals(boostMode)) {
+            if (boostSchoolId == null || boostSchoolId.isEmpty())
+                return Component.translatable("visual_set_edit.gui.select_school.all");
+            return Component.literal(Component.translatable("school." + boostSchoolId.replace(':', '.')).getString());
+        }
         if (boostSpellId == null || boostSpellId.isEmpty())
             return Component.translatable("visual_set_edit.gui.effect.spell_level_boost.all_spells");
         String name = IntegrationManager.getSpellDisplayName(boostSpellId);
@@ -1398,14 +1419,20 @@ public class EffectEditScreen extends Screen {
             @Override
             public void loadFrom(EffectEditScreen screen, EffectEntry entry) {
                 if (!(entry instanceof SpellLevelBoostEffectEntry boost)) return;
+                screen.boostMode = boost.hasSchool() ? "school" : "spell";
                 screen.boostSpellId = boost.spellId != null ? boost.spellId : "";
-                screen.boostAmount = boost.boostAmount > 0 ? boost.boostAmount : 1;
+                screen.boostSchoolId = boost.schoolId != null ? boost.schoolId : "";
+                screen.boostAmount = boost.boostAmount;
             }
 
             @Override
             public EffectEntry create(EffectEditScreen screen) {
                 SpellLevelBoostEffectEntry boost = new SpellLevelBoostEffectEntry();
-                boost.spellId = screen.boostSpellId.isEmpty() ? null : screen.boostSpellId;
+                if ("school".equals(screen.boostMode)) {
+                    boost.schoolId = screen.boostSchoolId.isEmpty() ? null : screen.boostSchoolId;
+                } else {
+                    boost.spellId = screen.boostSpellId.isEmpty() ? null : screen.boostSpellId;
+                }
                 try { boost.boostAmount = Integer.parseInt(screen.boostAmountEdit.getValue()); } catch (Exception ex) { boost.boostAmount = 1; }
                 return boost;
             }

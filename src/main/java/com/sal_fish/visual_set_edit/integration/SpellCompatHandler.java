@@ -39,10 +39,20 @@ public class SpellCompatHandler {
         if (boosts.isEmpty()) return;
 
         String spellId = event.getSpell().getSpellId();
+        String schoolId = event.getSpell().getSchoolType() != null
+                ? event.getSpell().getSchoolType().getId().toString()
+                : null;
+
+        int total = 0;
         for (SpellLevelBoostEffectEntry boost : boosts) {
-            if (boost.spellId == null || boost.spellId.isEmpty() || boost.spellId.equals(spellId)) {
-                event.setLevel(event.getLevel() + boost.boostAmount);
-            }
+            if (boost.boostAmount == 0) continue;
+            if (boost.hasSpell() && !boost.spellId.equals(spellId)) continue;
+            if (boost.hasSchool() && !boost.schoolId.equals(schoolId)) continue;
+            total += boost.boostAmount;
+        }
+        if (total != 0) {
+            // 基于基准等级累加，避免同一次施法内多次调用叠加
+            event.setLevel(event.getBaseLevel() + total);
         }
     }
 

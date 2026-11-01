@@ -141,12 +141,28 @@ public class IntegrationManager {
 
     //GUI 工厂方法
     public static Screen createSpellListScreen(Screen parent, Consumer<ResourceLocation> callback) {
+        return createSpellListScreen(parent, callback, false);
+    }
+
+    public static Screen createSpellListScreen(Screen parent, Consumer<ResourceLocation> callback, boolean allOption) {
         if (!isIronSpellsLoaded()) return null;
         Class<?> screenClass = findClass("com.sal_fish.visual_set_edit.gui.SpellListScreen");
         if (screenClass == null) return null;
         try {
-            return (Screen) screenClass.getConstructor(Screen.class, Consumer.class)
-                    .newInstance(parent, callback);
+            return (Screen) screenClass.getConstructor(Screen.class, Consumer.class, boolean.class)
+                    .newInstance(parent, callback, allOption);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static Screen createSchoolListScreen(Screen parent, Consumer<ResourceLocation> callback, boolean allOption) {
+        if (!isIronSpellsLoaded()) return null;
+        Class<?> screenClass = findClass("com.sal_fish.visual_set_edit.gui.SchoolListScreen");
+        if (screenClass == null) return null;
+        try {
+            return (Screen) screenClass.getConstructor(Screen.class, Consumer.class, boolean.class)
+                    .newInstance(parent, callback, allOption);
         } catch (Exception e) {
             return null;
         }
