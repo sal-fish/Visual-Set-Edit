@@ -51,8 +51,7 @@ public class SpellCompatHandler {
             total += boost.boostAmount;
         }
         if (total != 0) {
-            // 基于基准等级累加，避免同一次施法内多次调用叠加
-            event.setLevel(event.getBaseLevel() + total);
+            event.setLevel(event.getLevel() + total);
         }
     }
 
