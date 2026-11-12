@@ -82,14 +82,16 @@ public class AbilityEffectEntry extends EffectEntry {
 
     @Override
     public String getDisplayText() {
+        AbilitySpec spec = AbilityTypeRegistry.get(abilityId);
+        // 外部能力可以按单条参数给出完整文本，给了就不再套统一前缀
+        if (spec != null && spec.entryText() != null) {
+            return spec.entryText().apply(this.params);
+        }
         String abilityName = switch (abilityId == null ? "" : abilityId) {
             case "FLIGHT" -> Component.translatable("visual_set_edit.gui.effect.ability.flight").getString();
             case "FALL_IMMUNITY" ->
                     Component.translatable("visual_set_edit.gui.effect.ability.fall_immunity").getString();
-            default -> {
-                AbilitySpec spec = AbilityTypeRegistry.get(abilityId);
-                yield spec != null ? spec.displayName().getString() : String.valueOf(abilityId);
-            }
+            default -> spec != null ? spec.displayName().getString() : String.valueOf(abilityId);
         };
         return Component.translatable("visual_set_edit.gui.effect.ability.display", abilityName).getString();
     }

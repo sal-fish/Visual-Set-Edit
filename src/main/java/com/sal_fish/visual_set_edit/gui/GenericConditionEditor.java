@@ -16,7 +16,9 @@ public class GenericConditionEditor implements ConditionEditorRegistry.Editor {
 
     @Override
     public void buildFields(ConditionEditScreen screen, int centerX, int y, int totalWidth, int rowHeight, int spacing) {
-        panel.render(FieldSpecPanel.hostOf(screen), spec.fields(), centerX, y, totalWidth, rowHeight, spacing);
+        y = panel.render(FieldSpecPanel.hostOf(screen), spec.fields(), centerX, y, totalWidth, rowHeight, spacing);
+        y = screen.buildCustomDisplayField(centerX, y, totalWidth, rowHeight, spacing);
+        screen.saveButton(centerX, y, totalWidth, rowHeight);
     }
 
     @Override

@@ -731,7 +731,7 @@ public class ConditionEditScreen extends Screen {
     }
 
     //自定义显示文本（与效果系统一致，优先于自动生成的描述）
-    private int buildCustomDisplayField(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
+    int buildCustomDisplayField(int centerX, int y, int totalWidth, int rowHeight, int spacing) {
         addRenderableWidget(new StringWidget(centerX - totalWidth / 2, y, totalWidth, rowHeight,
                 Component.translatable("visual_set_edit.gui.condition.custom_display_text"), font));
         y += rowHeight;
@@ -745,7 +745,7 @@ public class ConditionEditScreen extends Screen {
         return y;
     }
 
-    private void saveButton(int centerX, int y, int totalWidth, int rowHeight) {
+    void saveButton(int centerX, int y, int totalWidth, int rowHeight) {
         addRenderableWidget(Button.builder(
                 Component.translatable("visual_set_edit.gui.save"),
                 b -> {

@@ -4,6 +4,8 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 // 能力规格：外部用它往"能力"板块追加一个子能力
@@ -13,12 +15,14 @@ public final class AbilitySpec {
     private final AbilityHandler handler;
     private final List<FieldSpec> fields;
     private final Supplier<Component> displayText;
+    private final Function<Map<String, Object>, String> entryText;
 
     private AbilitySpec(Builder builder) {
         this.id = builder.id;
         this.handler = builder.handler;
         this.fields = List.copyOf(builder.fields);
         this.displayText = builder.displayText;
+        this.entryText = builder.entryText;
     }
 
     public static Builder create(String id) {
@@ -33,6 +37,9 @@ public final class AbilitySpec {
 
     public Supplier<Component> displayText() { return displayText; }
 
+    // 单条能力的显示文本生成器，入参是本条能力的 params，为 null 时用类型名
+    public Function<Map<String, Object>, String> entryText() { return entryText; }
+
     // 下拉里的显示名，未自定义时用 lang key visual_set_edit.gui.effect.ability.<id>
     public Component displayName() {
         return displayText != null
@@ -45,6 +52,7 @@ public final class AbilitySpec {
         private final List<FieldSpec> fields = new ArrayList<>();
         private AbilityHandler handler;
         private Supplier<Component> displayText;
+        private Function<Map<String, Object>, String> entryText;
 
         private Builder(String id) {
             this.id = id;
@@ -65,6 +73,12 @@ public final class AbilitySpec {
         // 自定义显示名，不设时用 lang key
         public Builder displayText(Supplier<Component> displayText) {
             this.displayText = displayText;
+            return this;
+        }
+
+        // 单条能力的显示文本，入参是本条 params，不设时用类型名
+        public Builder entryText(Function<Map<String, Object>, String> entryText) {
+            this.entryText = entryText;
             return this;
         }
 
